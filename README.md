@@ -66,7 +66,7 @@ Compile the two package by typing:
 **We do not use catkin, however fortunately old-fashioned CMake-builds are still possible with ROS indigo.**
 For this you need to create a rosbuild workspace (if you don't have one yet), using:
 
-    sudo apt-get install python-rosinstall
+    sudo apt-get install python2-rosinstall
     mkdir ~/rosbuild_ws
     cd ~/rosbuild_ws
     rosws init . /opt/ros/indigo
