@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(lsd_slam_core)
+
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 # Set the build type.  Options are:
