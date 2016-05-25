@@ -132,25 +132,27 @@ public:
 		:
 		m_runningIDX(0),
 		m_fakeTimeStamp(0),
-		m_finalized(false)
+		m_finalized(false),
+		m_hz(0)
 	{}
 
 	~SlamSystemWrapper()
 	{
 		delete m_system;
 		delete m_outputWrapper;
-		delete m_undisorter;
+		delete m_undistorter;
 	}
 
 	//undisorter pointer is managed by this class
-	void init(const Undistorter* undisorter)
+	void init(const Undistorter* undistorter, const double hz)
 	{
-		m_undistorter = undisorter;
+		m_hz = hz;
+		m_undistorter = undistorter;
 		
 		int w = undistorter->getOutputWidth();
 		int h = undistorter->getOutputHeight();
 		
-		m_outputWrapper = new Output3DWrapper(w, h);
+		m_outputWrapper = new ROSOutput3DWrapper(w, h);
 		
 		float fx = undistorter->getK().at<double>(0, 0);
 		float fy = undistorter->getK().at<double>(1, 1);
@@ -160,7 +162,7 @@ public:
 		m_K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 		
 		m_system = new SlamSystem(w, h, m_K, doSlam);
-		m_system->setVisualization(outputWrapper);
+		m_system->setVisualization(m_outputWrapper);
 	}
 	
 	void setImages(const std::string& folder, const std::vector<std::string>& files)
@@ -174,7 +176,7 @@ public:
 		if (!m_imageFiles.size())
 			return false;
 		
-		if (m_runningIDX >= m_imageFiles.size())
+		if (m_runningIDX >= (int)m_imageFiles.size())
 		{
 			if (!m_finalized)
 			{
@@ -184,47 +186,51 @@ public:
 			return false;
 		}
 		
-		int w = m_undisorter->getOutputWidth();
-		int h = m_undisorter->getOutputHeight();
+		int w = m_undistorter->getOutputWidth();
+		int h = m_undistorter->getOutputHeight();
 		
-		cv::Mat imageDist = cv::imread(m_imageFiles[m_imageFiles], CV_LOAD_IMAGE_GRAYSCALE);
+		cv::Mat imageDist = cv::imread(m_imageFiles[m_runningIDX], CV_LOAD_IMAGE_GRAYSCALE);
 
-		if (imageDist.rows != getInputHeight() || imageDist.cols != m_undisorter->getInputWidth())
+		if (imageDist.rows != m_undistorter->getInputHeight() || imageDist.cols != m_undistorter->getInputWidth())
 		{
 			if (imageDist.rows * imageDist.cols == 0)
-				printf("failed to load image %s! skipping.\n", files[i].c_str());
+				printf("failed to load image %s! skipping.\n", m_imageFiles[m_runningIDX].c_str());
 			else
 				printf("image %s has wrong dimensions - expecting %d x %d, found %d x %d. Skipping.\n",
-						m_imageFiles[m_imageFiles].c_str(),
+						m_imageFiles[m_runningIDX].c_str(),
 						w,h,imageDist.cols, imageDist.rows);
-			continue;
+			return true;
 		}
 		assert(imageDist.type() == CV_8U);
 
-		undistorter->undistort(imageDist, image);
+		cv::Mat image = cv::Mat(h, w, CV_8U);
+		m_undistorter->undistort(imageDist, image);
 		assert(image.type() == CV_8U);
 
 		if (m_runningIDX == 0)
-			system->randomInit(image.data, fakeTimeStamp, m_runningIDX);
+			m_system->randomInit(image.data, m_fakeTimeStamp, m_runningIDX);
 		else
-			system->trackFrame(image.data, m_runningIDX, hz == 0, fakeTimeStamp);
-		++runningIDX;
-		fakeTimeStamp += 0.03;
+			m_system->trackFrame(image.data, m_runningIDX, m_hz == 0, m_fakeTimeStamp);
+		++m_runningIDX;
+		m_fakeTimeStamp += 0.03;
+		
+		return true;
 	}
 	
 	void reset()
 	{
 		m_runningIDX = 0;
 		m_fakeTimeStamp = 0;
+		m_hz = 0;
 		delete m_system;
-		m_system = new SlamSystem(m_undisorter->getOutputWidth(), m_undisorter->getOutputHeight(), m_K, doSlam);
+		m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, doSlam);
 		m_system->setVisualization(m_outputWrapper);
 	}
 	
 private:
 	const Undistorter* m_undistorter;
 	Sophus::Matrix3f m_K;
-	Output3DWrapper* = m_outputWrapper;
+	Output3DWrapper* m_outputWrapper;
 	SlamSystem* m_system;
 	std::vector<std::string> m_imageFiles;
 	std::string m_folder;
@@ -232,6 +238,7 @@ private:
 	int m_runningIDX;
 	float m_fakeTimeStamp;
 	bool m_finalized;
+	double m_hz;
 };
 
 int main( int argc, char** argv )
@@ -257,7 +264,7 @@ int main( int argc, char** argv )
 
 	// open image files: first try to open as file.
 	std::vector<std::string> folders;
-	if (!ros::param::get("~folders", folders))unsigned int i=0;i<files.size();i++
+	if (!ros::param::get("~folders", folders))
 	{
 		printf("need image folders! (set using _folders:=FOLDER0,...,FOLDERN)\n");
 		exit(1);
@@ -284,25 +291,25 @@ int main( int argc, char** argv )
 		}
 	}
 
-	//initialize wrappers
-	std::vector<SlamSystemWrapper> wrappers(calibFiles.size());
-	for (int i = 0; i < calibFiles.size(); ++i)
-	{
-		Undistorter* undistorter = Undistorter::getUndistorterForFile(calibFile.c_str());
-		if (!undistorter)
-		{
-			printf("undisorter calib file: %s has wrong format!\n", calibFile.c_str());
-			exit(1);
-		}
-		
-		wrappers[i].init(undisorter);
-	}
-
 	// get HZ
 	double hz = 0;
 	if(!ros::param::get("~hz", hz))
 		hz = 0;
 	ros::param::del("~hz");
+
+	//initialize wrappers
+	std::vector<SlamSystemWrapper> wrappers(calibFiles.size());
+	for (size_t i = 0; i < calibFiles.size(); ++i)
+	{
+		Undistorter* undistorter = Undistorter::getUndistorterForFile(calibFiles[i].c_str());
+		if (!undistorter)
+		{
+			printf("undisorter calib file: %s has wrong format!\n", calibFiles[i].c_str());
+			exit(1);
+		}
+		
+		wrappers[i].init(undistorter, hz);
+	}
 
 	//algorithm start
 	ros::Rate r(hz);
@@ -312,7 +319,7 @@ int main( int argc, char** argv )
 	{
 		for (auto& wrapper : wrappers)
 		{
-			isRunning ||= wrapper.processNextImage();
+			isRunning |= wrapper.processNextImage();
 
 			if (hz != 0)
 				r.sleep();
