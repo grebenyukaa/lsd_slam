@@ -12,6 +12,7 @@ lsd_slam_core/thirdparty/Sophus/Makefile
 lsd_slam_core/thirdparty/Sophus/SophusConfig.cmake
 lsd_slam_core/thirdparty/openFabMap/CMakeFiles/
 lsd_slam_core/thirdparty/openFabMap/Makefile
+lsd_slam_core/Makefile
 
 lsd_slam_viewer/bin/
 lsd_slam_viewer/build/
@@ -25,6 +26,7 @@ lsd_slam_viewer/.pydevproject
 lsd_slam_viewer/thirdparty/Sophus/CMakeFiles/
 lsd_slam_viewer/thirdparty/Sophus/Makefile
 lsd_slam_viewer/thirdparty/Sophus/SophusConfig.cmake
+lsd_slam_viewer/Makefile
 
 cmake_install.cmake
 *.cfgc

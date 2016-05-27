@@ -21,6 +21,7 @@
 #include "LiveSLAMWrapper.h"
 
 #include <boost/thread.hpp>
+#include <boost/algorithm/string.hpp>
 #include "util/settings.h"
 #include "util/globalFuncs.h"
 #include "SlamSystem.h"
@@ -241,6 +242,11 @@ private:
 	double m_hz;
 };
 
+void splitParams(const std::string& src, const std::string& sep, std::vector<std::string>& dst)
+{
+	boost::split(dst, src, boost::is_any_of(sep));
+}
+
 int main( int argc, char** argv )
 {
 	ros::init(argc, argv, "LSD_SLAM");
@@ -254,22 +260,26 @@ int main( int argc, char** argv )
 	packagePath = ros::package::getPath("lsd_slam_core")+"/";
 
 	// get camera calibration in form of an undistorter object.
-	std::vector<std::string> calibFiles;
-	if (!ros::param::get("~calib", calibFiles))
+	std::string calibFilesStr;
+	if (!ros::param::get("~calib", calibFilesStr))
 	{
 		printf("need camera calibration files! (set using _calib:=FILE0,...,FILEN)\n");
 		exit(1);
 	}
 	ros::param::del("~calib");
+	std::vector<std::string> calibFiles;
+	splitParams(calibFilesStr, ", ", calibFiles);
 
 	// open image files: first try to open as file.
-	std::vector<std::string> folders;
-	if (!ros::param::get("~folders", folders))
+	std::string foldersStr;
+	if (!ros::param::get("~folders", foldersStr))
 	{
 		printf("need image folders! (set using _folders:=FOLDER0,...,FOLDERN)\n");
 		exit(1);
 	}
 	ros::param::del("~folders");
+	std::vector<std::string> folders;
+	splitParams(foldersStr, ", ", folders);
 	
 	if (calibFiles.size() != folders.size())
 	{
@@ -277,20 +287,6 @@ int main( int argc, char** argv )
 		exit(1);
 	}
 	
-	for (const auto& folder : folders)
-	{
-		std::vector<std::string> files;
-		if (getdir(folder, files) >= 0)
-		{
-			printf("found %d image files in folder %s!\n", (int)files.size(), folder.c_str());
-		}
-		else
-		{
-			printf("folder %s is empty!", folder.c_str());
-			exit(1);
-		}
-	}
-
 	// get HZ
 	double hz = 0;
 	if(!ros::param::get("~hz", hz))
@@ -309,6 +305,17 @@ int main( int argc, char** argv )
 		}
 		
 		wrappers[i].init(undistorter, hz);
+		
+		std::vector<std::string> files;
+		if (getdir(folders[i], files) >= 0)
+		{
+			printf("found %d image files in folder %s!\n", (int)files.size(), folders[i].c_str());
+			wrappers[i].setImages(folders[i], files);
+		}
+		else
+		{
+			printf("folder %s is empty!", folders[i].c_str());
+		}
 	}
 
 	//algorithm start
@@ -317,6 +324,7 @@ int main( int argc, char** argv )
 	bool isRunning = true;
 	while (isRunning)
 	{
+		isRunning = false;
 		for (auto& wrapper : wrappers)
 		{
 			isRunning |= wrapper.processNextImage();
