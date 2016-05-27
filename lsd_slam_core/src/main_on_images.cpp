@@ -129,6 +129,7 @@ using namespace lsd_slam;
 class SlamSystemWrapper
 {
 public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	SlamSystemWrapper()
 		:
 		m_runningIDX(0),
@@ -145,10 +146,11 @@ public:
 	}
 
 	//undisorter pointer is managed by this class
-	void init(const Undistorter* undistorter, const double hz)
+	void init(const std::string& wnd_name, const Undistorter* undistorter, const double hz)
 	{
 		m_hz = hz;
 		m_undistorter = undistorter;
+		m_wnd_name = wnd_name;
 		
 		int w = undistorter->getOutputWidth();
 		int h = undistorter->getOutputHeight();
@@ -162,7 +164,7 @@ public:
 		
 		m_K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 		
-		m_system = new SlamSystem(w, h, m_K, doSlam);
+		m_system = new SlamSystem(w, h, m_K, wnd_name, doSlam);
 		m_system->setVisualization(m_outputWrapper);
 	}
 	
@@ -224,7 +226,7 @@ public:
 		m_fakeTimeStamp = 0;
 		m_hz = 0;
 		delete m_system;
-		m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, doSlam);
+		m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, m_wnd_name, doSlam);
 		m_system->setVisualization(m_outputWrapper);
 	}
 	
@@ -240,6 +242,7 @@ private:
 	float m_fakeTimeStamp;
 	bool m_finalized;
 	double m_hz;
+	std::string m_wnd_name;
 };
 
 void splitParams(const std::string& src, const std::string& sep, std::vector<std::string>& dst)
@@ -304,7 +307,9 @@ int main( int argc, char** argv )
 			exit(1);
 		}
 		
-		wrappers[i].init(undistorter, hz);
+		std::ostringstream oss;
+		oss << "Vehicle " << i;
+		wrappers[i].init(oss.str(), undistorter, hz);
 		
 		std::vector<std::string> files;
 		if (getdir(folders[i], files) >= 0)

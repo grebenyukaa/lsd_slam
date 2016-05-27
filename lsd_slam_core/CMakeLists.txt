@@ -38,9 +38,10 @@ rosbuild_check_for_sse()
 add_definitions("-DUSE_ROS")
 add_definitions("-DENABLE_SSE")
 
-# Also add some useful compiler flag
+# Also add some useful compiler flags
+# gcc 6 related flags -Wno-ignored-attributes -Wno-misleading-indentation have to be used because of annoying warnings from Eigen
 set(CMAKE_CXX_FLAGS
-   "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -march=native  -std=c++0x -Wno-ignored-attributes"
+   "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -march=native -std=c++0x -Wno-ignored-attributes -Wno-misleading-indentation"
 ) 
 
 # Set source files
