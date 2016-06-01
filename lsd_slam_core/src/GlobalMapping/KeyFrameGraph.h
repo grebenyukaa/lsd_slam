@@ -28,9 +28,6 @@
 #include "util/SophusUtil.h"
 #include "deque"
 
-#include <tbb/concurrent_vector.h>
-#include <tbb/concurrent_unordered_map.h>
-
 namespace lsd_slam
 {
 
@@ -130,7 +127,6 @@ public:
 	 */
 	void calculateGraphDistancesToFrame(Frame* frame, std::unordered_map<Frame*, int>* distanceMap);
 	
-
 
 	int totalPoints;
 	int totalEdges;

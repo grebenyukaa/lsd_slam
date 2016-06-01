@@ -68,7 +68,7 @@ public:
 	bool trackingIsGood;
 
 
-	SlamSystem(int w, int h, Eigen::Matrix3f K, const std::string& wnd_name, bool enableSLAM = true);
+	SlamSystem(int w, int h, Eigen::Matrix3f K, const int agentId, bool enableSLAM = true);
 	SlamSystem(const SlamSystem&) = delete;
 	SlamSystem& operator=(const SlamSystem&) = delete;
 	~SlamSystem();
@@ -224,13 +224,10 @@ private:
 	// locked exclusively during the pose-update by Mapping.
 	boost::shared_mutex poseConsistencyMutex;
 	
-	
-
 	bool depthMapScreenshotFlag;
 	std::string depthMapScreenshotFilename;
 
-	std::string m_wnd_name;
-
+	int m_agentId;
 
 	/** Merges the current keyframe optimization offset to all working entities. */
 	void mergeOptimizationOffset();

@@ -45,9 +45,9 @@ public:
 	friend class FrameMemory;
 
 
-	Frame(int id, int width, int height, const Eigen::Matrix3f& K, double timestamp, const unsigned char* image);
+	Frame(int id, int agentId, int width, int height, const Eigen::Matrix3f& K, double timestamp, const unsigned char* image);
 
-	Frame(int id, int width, int height, const Eigen::Matrix3f& K, double timestamp, const float* image);
+	Frame(int id, int agentId, int width, int height, const Eigen::Matrix3f& K, double timestamp, const float* image);
 
 	~Frame();
 	
@@ -69,6 +69,7 @@ public:
 	// Accessors
 	/** Returns the unique frame id. */
 	inline int id() const;
+	inline int agentId() const;
 	
 	/** Returns the frame's image width. */
 	inline int width(int level = 0) const;
@@ -210,7 +211,7 @@ private:
 	void require(int dataFlags, int level = 0);
 	void release(int dataFlags, bool pyramidsOnly, bool invalidateOnly);
 
-	void initialize(int id, int width, int height, const Eigen::Matrix3f& K, double timestamp);
+	void initialize(int id, int agentId, int width, int height, const Eigen::Matrix3f& K, double timestamp);
 	void setDepth_Allocate();
 	
 	void buildImage(int level);
@@ -231,6 +232,7 @@ private:
 	struct Data
 	{
 		int id;
+		int agentId;
 		
 		int width[PYRAMID_LEVELS], height[PYRAMID_LEVELS];
 
@@ -295,6 +297,11 @@ private:
 inline int Frame::id() const
 {
 	return data.id;
+}
+
+inline int Frame::agentId() const
+{
+	return data.agentId;
 }
 
 inline int Frame::width(int level) const

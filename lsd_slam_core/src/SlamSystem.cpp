@@ -48,12 +48,11 @@
 
 using namespace lsd_slam;
 
-
-SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, const std::string& wnd_name, bool enableSLAM)
+SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, const int agentId, bool enableSLAM)
 	: 
 	SLAMEnabled(enableSLAM),
 	relocalizer(w,h,K),
-	m_wnd_name(wnd_name)
+	m_agentId(agentId)
 {
 	if(w%16 != 0 || h%16!=0)
 	{
@@ -164,7 +163,7 @@ SlamSystem::~SlamSystem()
 
 	// delte keyframe graph
 	delete keyFrameGraph;
-
+		
 	FrameMemory::getInstance().releaseBuffes();
 
 
@@ -194,11 +193,6 @@ void SlamSystem::mergeOptimizationOffset()
 	}
 
 	poseConsistencyMutex.unlock();
-
-
-
-
-
 
 	if(needPublish)
 		publishKeyframeGraph();
@@ -657,10 +651,11 @@ void SlamSystem::addTimingSamples()
 
 void SlamSystem::debugDisplayDepthMap()
 {
-	assert("Window name not set!" && m_wnd_name.size());
-	
 	try
 	{
+		std::ostringstream oss;
+		oss << "Agent #" << m_agentId << " feed";
+		
 		map->debugPlotDepthMap();
 		double scale = 1;
 		if(currentKeyFrame != 0 && currentKeyFrame != 0)
@@ -690,7 +685,7 @@ void SlamSystem::debugDisplayDepthMap()
 		if(onSceenInfoDisplay)
 			printMessageOnCVImage(map->debugImageDepth, buf1, buf2);
 		if (displayDepthMap)
-			Util::displayImage(m_wnd_name.c_str(), map->debugImageDepth, false);
+			Util::displayImage(oss.str().c_str(), map->debugImageDepth, false);
 	}
 	catch (const cv::Exception& e)
 	{
@@ -844,7 +839,7 @@ void SlamSystem::gtDepthInit(uchar* image, float* depth, double timeStamp, int i
 
 	currentKeyFrameMutex.lock();
 
-	currentKeyFrame.reset(new Frame(id, width, height, K, timeStamp, image));
+	currentKeyFrame.reset(new Frame(id, m_agentId, width, height, K, timeStamp, image));
 	currentKeyFrame->setDepthFromGroundTruth(depth);
 
 	map->initializeFromGTDepth(currentKeyFrame.get());
@@ -874,7 +869,7 @@ void SlamSystem::randomInit(uchar* image, double timeStamp, int id)
 
 	currentKeyFrameMutex.lock();
 
-	currentKeyFrame.reset(new Frame(id, width, height, K, timeStamp, image));
+	currentKeyFrame.reset(new Frame(id, m_agentId, width, height, K, timeStamp, image));
 	map->initializeRandomly(currentKeyFrame.get());
 	keyFrameGraph->addFrame(currentKeyFrame.get());
 
@@ -898,7 +893,7 @@ void SlamSystem::randomInit(uchar* image, double timeStamp, int id)
 void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilMapped, double timestamp)
 {
 	// Create new frame
-	std::shared_ptr<Frame> trackingNewFrame(new Frame(frameID, width, height, K, timestamp, image));
+	std::shared_ptr<Frame> trackingNewFrame(new Frame(frameID, m_agentId, width, height, K, timestamp, image));
 
 	if(!trackingIsGood)
 	{

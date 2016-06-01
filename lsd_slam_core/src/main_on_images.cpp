@@ -146,11 +146,12 @@ public:
 	}
 
 	//undisorter pointer is managed by this class
-	void init(const std::string& wnd_name, const Undistorter* undistorter, const double hz)
+	void init(const int agentId, const int idOffset, const Undistorter* undistorter, const double hz)
 	{
 		m_hz = hz;
 		m_undistorter = undistorter;
-		m_wnd_name = wnd_name;
+		m_agentId = agentId;
+		m_idOffset = idOffset;
 		
 		int w = undistorter->getOutputWidth();
 		int h = undistorter->getOutputHeight();
@@ -164,7 +165,7 @@ public:
 		
 		m_K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 		
-		m_system = new SlamSystem(w, h, m_K, wnd_name, doSlam);
+		m_system = new SlamSystem(w, h, m_K, agentId, doSlam);
 		m_system->setVisualization(m_outputWrapper);
 	}
 	
@@ -211,9 +212,9 @@ public:
 		assert(image.type() == CV_8U);
 
 		if (m_runningIDX == 0)
-			m_system->randomInit(image.data, m_fakeTimeStamp, m_runningIDX);
+			m_system->randomInit(image.data, m_fakeTimeStamp, m_runningIDX + m_idOffset);
 		else
-			m_system->trackFrame(image.data, m_runningIDX, m_hz == 0, m_fakeTimeStamp);
+			m_system->trackFrame(image.data, m_runningIDX + m_idOffset, m_hz == 0, m_fakeTimeStamp);
 		++m_runningIDX;
 		m_fakeTimeStamp += 0.03;
 		
@@ -226,7 +227,7 @@ public:
 		m_fakeTimeStamp = 0;
 		m_hz = 0;
 		delete m_system;
-		m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, m_wnd_name, doSlam);
+		m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, m_agentId, doSlam);
 		m_system->setVisualization(m_outputWrapper);
 	}
 	
@@ -242,7 +243,8 @@ private:
 	float m_fakeTimeStamp;
 	bool m_finalized;
 	double m_hz;
-	std::string m_wnd_name;
+	int m_agentId;
+	int m_idOffset;
 };
 
 void splitParams(const std::string& src, const std::string& sep, std::vector<std::string>& dst)
@@ -297,6 +299,7 @@ int main( int argc, char** argv )
 	ros::param::del("~hz");
 
 	//initialize wrappers
+	int frameIDOffset = 0;
 	std::vector<SlamSystemWrapper> wrappers(calibFiles.size());
 	for (size_t i = 0; i < calibFiles.size(); ++i)
 	{
@@ -307,14 +310,12 @@ int main( int argc, char** argv )
 			exit(1);
 		}
 		
-		std::ostringstream oss;
-		oss << "Vehicle " << i;
-		wrappers[i].init(oss.str(), undistorter, hz);
-		
 		std::vector<std::string> files;
 		if (getdir(folders[i], files) >= 0)
 		{
 			printf("found %d image files in folder %s!\n", (int)files.size(), folders[i].c_str());
+			wrappers[i].init(i, frameIDOffset, undistorter, hz);
+			frameIDOffset += (int)files.size();
 			wrappers[i].setImages(folders[i], files);
 		}
 		else

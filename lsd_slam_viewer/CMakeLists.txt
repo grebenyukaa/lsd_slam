@@ -38,9 +38,10 @@ rosbuild_genmsg()
 
 
 # SSE flags
+# gcc 6 related flags -Wno-ignored-attributes -Wno-misleading-indentation have to be used because of annoying warnings from Eigen
 rosbuild_check_for_sse()
 set(CMAKE_CXX_FLAGS
-   "${SSE_FLAGS}"
+   "${SSE_FLAGS} -Wno-ignored-attributes -Wno-misleading-indentation"
 )
 
 # SSE Sources files

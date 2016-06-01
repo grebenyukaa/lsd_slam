@@ -1,4 +1,5 @@
 int32 id
+uint32 agentId
 float64 time
 bool isKeyframe
 

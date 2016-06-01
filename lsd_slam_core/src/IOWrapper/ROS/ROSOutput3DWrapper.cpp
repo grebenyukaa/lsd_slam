@@ -117,6 +117,7 @@ void ROSOutput3DWrapper::publishTrackedFrame(Frame* kf)
 
 
 	fMsg.id = kf->id();
+	fMsg.agentId = kf->agentId();
 	fMsg.time = kf->timestamp();
 	fMsg.isKeyframe = false;
 
@@ -185,6 +186,7 @@ void ROSOutput3DWrapper::publishKeyframeGraph(KeyFrameGraph* graph)
 	for(unsigned int i=0;i<graph->keyframesAll.size();i++)
 	{
 		framePoseData[i].id = graph->keyframesAll[i]->id();
+		framePoseData[i].agentId = graph->keyframesAll[i]->agentId();
 		memcpy(framePoseData[i].camToWorld, graph->keyframesAll[i]->getScaledCamToWorld().cast<float>().data(),sizeof(float)*7);
 	}
 	graph->keyframesAllMutex.unlock_shared();

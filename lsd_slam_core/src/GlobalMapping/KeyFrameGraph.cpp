@@ -63,7 +63,8 @@ KFConstraintStruct::~KFConstraintStruct()
 }
 
 KeyFrameGraph::KeyFrameGraph()
-: nextEdgeId(0)
+	:
+	nextEdgeId(0)
 {
 	typedef g2o::BlockSolver_7_3 BlockSolver;
 	typedef g2o::LinearSolverCSparse<BlockSolver::PoseMatrixType> LinearSolver;
@@ -78,12 +79,9 @@ KeyFrameGraph::KeyFrameGraph()
 	blockSolver->setWriteDebug(true);
 	algorithm->setWriteDebug(true);
 
-
 	totalPoints=0;
 	totalEdges=0;
 	totalVertices=0;
-
-
 }
 
 KeyFrameGraph::~KeyFrameGraph()

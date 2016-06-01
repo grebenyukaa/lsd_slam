@@ -27,7 +27,8 @@
 #include <dynamic_reconfigure/server.h>
 #include "lsd_slam_viewer/LSDSLAMViewerParamsConfig.h"
 #include <qapplication.h>
-
+#include <QMutex>
+#include <QMutexLocker>
 
 #include "lsd_slam_viewer/keyframeGraphMsg.h"
 #include "lsd_slam_viewer/keyframeMsg.h"
@@ -38,9 +39,24 @@
 #include "rosbag/query.h"
 #include "rosbag/view.h"
 
+QMutex viewerInitializationMutex;
+std::map<int, PointCloudViewer> viewers;
 
-PointCloudViewer* viewer = 0;
+void initViewer(const int id, PointCloudViewer& viewer)
+{
+	QString wnd_title = QString("PointCloud Viewer #%1").arg(id);
+	
+	#if QT_VERSION < 0x040000
+		// Set the viewer as the application main widget.
+		//application.setMainWidget(viewer);
+		assert("Not implemented!" && 0);
+	#else
+		viewer.setWindowTitle(wnd_title);
+	#endif
 
+	// Make the viewer window visible on screen.
+	viewer.show();
+}
 
 void dynConfCb(lsd_slam_viewer::LSDSLAMViewerParamsConfig &config, uint32_t level)
 {
@@ -68,19 +84,27 @@ void dynConfCb(lsd_slam_viewer::LSDSLAMViewerParamsConfig &config, uint32_t leve
 
 void frameCb(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
-
+	{
+		QMutexLocker lck(&viewerInitializationMutex);
+		if (viewers.find(msg->agentId) == viewers.cend())
+			initViewer(msg->agentId, viewers[msg->agentId]);
+	}
+	
 	if(msg->time > lastFrameTime) return;
 
-	if(viewer != 0)
-		viewer->addFrameMsg(msg);
+	viewers[msg->agentId].addFrameMsg(msg);
 }
+
 void graphCb(lsd_slam_viewer::keyframeGraphMsgConstPtr msg)
 {
-	if(viewer != 0)
-		viewer->addGraphMsg(msg);
+	{
+		QMutexLocker lck(&viewerInitializationMutex);
+		if (viewers.find(msg->agentId) == viewers.cend())
+			initViewer(msg->agentId, viewers[msg->agentId]);
+	}
+	
+	viewers[msg->agentId].addGraphMsg(msg);
 }
-
-
 
 void rosThreadLoop( int argc, char** argv )
 {
@@ -151,25 +175,9 @@ void rosFileLoop( int argc, char** argv )
 
 int main( int argc, char** argv )
 {
-
-
 	printf("Started QApplication thread\n");
 	// Read command lines arguments.
 	QApplication application(argc,argv);
-
-	// Instantiate the viewer.
-	viewer = new PointCloudViewer();
-
-
-	#if QT_VERSION < 0x040000
-		// Set the viewer as the application main widget.
-		application.setMainWidget(viewer);
-	#else
-		viewer->setWindowTitle("PointCloud Viewer");
-	#endif
-
-	// Make the viewer window visible on screen.
-	viewer->show();
 
 	boost::thread rosThread;
 
@@ -182,8 +190,7 @@ int main( int argc, char** argv )
 		// start ROS thread
 		rosThread = boost::thread(rosThreadLoop, argc, argv);
 	}
-
-
+	
 	application.exec();
 
 	printf("Shutting down... \n");

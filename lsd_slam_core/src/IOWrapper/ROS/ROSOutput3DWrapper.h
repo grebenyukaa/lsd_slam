@@ -48,6 +48,7 @@ struct GraphConstraint
 struct GraphFramePose
 {
 	int id;
+	int agentId;
 	float camToWorld[7];
 };
 
