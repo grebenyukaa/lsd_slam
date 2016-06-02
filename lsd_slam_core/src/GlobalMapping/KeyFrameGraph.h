@@ -91,7 +91,7 @@ public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 	/** Constructs an empty pose graph. */
-	KeyFrameGraph();
+	KeyFrameGraph(int agentId);
 	
 	/** Deletes the g2o graph. */
 	~KeyFrameGraph();
@@ -114,7 +114,6 @@ public:
 	 * If isOdometryConstraint is set, scaleInformation is ignored.
 	 */
 	void insertConstraint(KFConstraintStruct* constraint);
-
 	
 	/** Optimizes the graph. Does not update the keyframe poses,
 	 *  only the vertex poses. You must call updateKeyFramePoses() afterwards. */
@@ -127,6 +126,7 @@ public:
 	 */
 	void calculateGraphDistancesToFrame(Frame* frame, std::unordered_map<Frame*, int>* distanceMap);
 	
+	inline int agendId() const { return m_agentId; }
 
 	int totalPoints;
 	int totalEdges;
@@ -171,7 +171,6 @@ public:
 	std::deque<Frame*> keyframesForRetrack;
 
 
-
 private:
 
 	/** Pose graph representation in g2o */
@@ -182,6 +181,7 @@ private:
 
 
 	int nextEdgeId;
+	int m_agentId;
 };
 
 }

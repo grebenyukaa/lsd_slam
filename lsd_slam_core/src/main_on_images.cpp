@@ -25,6 +25,10 @@
 #include "util/settings.h"
 #include "util/globalFuncs.h"
 #include "SlamSystem.h"
+#include "ImageSLAMWrapper.h"
+
+#include "GlobalMapping/KeyFrameGraph.h"
+#include "GlobalMapping/GlobalKeyFrameGraph.h"
 
 #include <sstream>
 #include <fstream>
@@ -126,127 +130,6 @@ int getFile (std::string source, std::vector<std::string> &files)
 
 using namespace lsd_slam;
 
-class SlamSystemWrapper
-{
-public:
-	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-	SlamSystemWrapper()
-		:
-		m_runningIDX(0),
-		m_fakeTimeStamp(0),
-		m_finalized(false),
-		m_hz(0)
-	{}
-
-	~SlamSystemWrapper()
-	{
-		delete m_system;
-		delete m_outputWrapper;
-		delete m_undistorter;
-	}
-
-	//undisorter pointer is managed by this class
-	void init(const int agentId, const int idOffset, const Undistorter* undistorter, const double hz)
-	{
-		m_hz = hz;
-		m_undistorter = undistorter;
-		m_agentId = agentId;
-		m_idOffset = idOffset;
-		
-		int w = undistorter->getOutputWidth();
-		int h = undistorter->getOutputHeight();
-		
-		m_outputWrapper = new ROSOutput3DWrapper(w, h);
-		
-		float fx = undistorter->getK().at<double>(0, 0);
-		float fy = undistorter->getK().at<double>(1, 1);
-		float cx = undistorter->getK().at<double>(2, 0);
-		float cy = undistorter->getK().at<double>(2, 1);
-		
-		m_K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
-		
-		m_system = new SlamSystem(w, h, m_K, agentId, doSlam);
-		m_system->setVisualization(m_outputWrapper);
-	}
-	
-	void setImages(const std::string& folder, const std::vector<std::string>& files)
-	{
-		m_folder = folder;
-		m_imageFiles = files;
-	}
-	
-	bool processNextImage()
-	{
-		if (!m_imageFiles.size())
-			return false;
-		
-		if (m_runningIDX >= (int)m_imageFiles.size())
-		{
-			if (!m_finalized)
-			{
-				m_system->finalize();
-				m_finalized = true;
-			}
-			return false;
-		}
-		
-		int w = m_undistorter->getOutputWidth();
-		int h = m_undistorter->getOutputHeight();
-		
-		cv::Mat imageDist = cv::imread(m_imageFiles[m_runningIDX], CV_LOAD_IMAGE_GRAYSCALE);
-
-		if (imageDist.rows != m_undistorter->getInputHeight() || imageDist.cols != m_undistorter->getInputWidth())
-		{
-			if (imageDist.rows * imageDist.cols == 0)
-				printf("failed to load image %s! skipping.\n", m_imageFiles[m_runningIDX].c_str());
-			else
-				printf("image %s has wrong dimensions - expecting %d x %d, found %d x %d. Skipping.\n",
-						m_imageFiles[m_runningIDX].c_str(),
-						w,h,imageDist.cols, imageDist.rows);
-			return true;
-		}
-		assert(imageDist.type() == CV_8U);
-
-		cv::Mat image = cv::Mat(h, w, CV_8U);
-		m_undistorter->undistort(imageDist, image);
-		assert(image.type() == CV_8U);
-
-		if (m_runningIDX == 0)
-			m_system->randomInit(image.data, m_fakeTimeStamp, m_runningIDX + m_idOffset);
-		else
-			m_system->trackFrame(image.data, m_runningIDX + m_idOffset, m_hz == 0, m_fakeTimeStamp);
-		++m_runningIDX;
-		m_fakeTimeStamp += 0.03;
-		
-		return true;
-	}
-	
-	void reset()
-	{
-		m_runningIDX = 0;
-		m_fakeTimeStamp = 0;
-		m_hz = 0;
-		delete m_system;
-		m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, m_agentId, doSlam);
-		m_system->setVisualization(m_outputWrapper);
-	}
-	
-private:
-	const Undistorter* m_undistorter;
-	Sophus::Matrix3f m_K;
-	Output3DWrapper* m_outputWrapper;
-	SlamSystem* m_system;
-	std::vector<std::string> m_imageFiles;
-	std::string m_folder;
-	
-	int m_runningIDX;
-	float m_fakeTimeStamp;
-	bool m_finalized;
-	double m_hz;
-	int m_agentId;
-	int m_idOffset;
-};
-
 void splitParams(const std::string& src, const std::string& sep, std::vector<std::string>& dst)
 {
 	boost::split(dst, src, boost::is_any_of(sep));
@@ -255,6 +138,8 @@ void splitParams(const std::string& src, const std::string& sep, std::vector<std
 int main( int argc, char** argv )
 {
 	ros::init(argc, argv, "LSD_SLAM");
+
+	globalKeyFrameGraph = new KeyFrameGraph(0);
 
 	dynamic_reconfigure::Server<lsd_slam_core::LSDParamsConfig> srv(ros::NodeHandle("~"));
 	srv.setCallback(dynConfCb);
@@ -314,7 +199,7 @@ int main( int argc, char** argv )
 		if (getdir(folders[i], files) >= 0)
 		{
 			printf("found %d image files in folder %s!\n", (int)files.size(), folders[i].c_str());
-			wrappers[i].init(i, frameIDOffset, undistorter, hz);
+			wrappers[i].init(i + 1, frameIDOffset, undistorter, hz);
 			frameIDOffset += (int)files.size();
 			wrappers[i].setImages(folders[i], files);
 		}
@@ -347,6 +232,8 @@ int main( int argc, char** argv )
 				break;
 		}
 	}
+
+	delete globalKeyFrameGraph;
 
 	return 0;
 }

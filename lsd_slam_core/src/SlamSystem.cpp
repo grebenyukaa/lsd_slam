@@ -68,7 +68,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, const int agentId, bool 
 
 	currentKeyFrame =  nullptr;
 	trackingReferenceFrameSharedPT = nullptr;
-	keyFrameGraph = new KeyFrameGraph();
+	keyFrameGraph = new KeyFrameGraph(m_agentId);
 	createNewKeyFrame = false;
 
 	map =  new DepthMap(w,h,K);
@@ -414,7 +414,7 @@ void SlamSystem::finishCurrentKeyframe()
 			newKeyFrameMutex.lock();
 			newKeyFrames.push_back(currentKeyFrame.get());
 			newKeyFrameCreatedSignal.notify_all();
-			newKeyFrameMutex.unlock();
+			newKeyFrameMutex.unlock();			
 		}
 	}
 

@@ -62,9 +62,10 @@ KFConstraintStruct::~KFConstraintStruct()
 		delete edge;
 }
 
-KeyFrameGraph::KeyFrameGraph()
+KeyFrameGraph::KeyFrameGraph(int agentId)
 	:
-	nextEdgeId(0)
+	nextEdgeId(0),
+	m_agentId(agentId)
 {
 	typedef g2o::BlockSolver_7_3 BlockSolver;
 	typedef g2o::LinearSolverCSparse<BlockSolver::PoseMatrixType> LinearSolver;
@@ -86,7 +87,7 @@ KeyFrameGraph::KeyFrameGraph()
 
 KeyFrameGraph::~KeyFrameGraph()
 {
-	// deletes edges
+	// deletes edgesFramePoseStruct
 	for (KFConstraintStruct* edge : newEdgeBuffer)
 		delete edge;	// deletes the g2oedge, which deletes the kernel.
 
@@ -100,13 +101,12 @@ KeyFrameGraph::~KeyFrameGraph()
 		delete p;
 }
 
-
 void KeyFrameGraph::addFrame(Frame* frame)
 {
-
+	assert(m_agentId != frame->agentId());
+	
 	frame->pose->isRegisteredToGraph = true;
 	FramePoseStruct* pose = frame->pose;
-
 
 	allFramePosesMutex.lock();
 	allFramePoses.push_back(pose);
