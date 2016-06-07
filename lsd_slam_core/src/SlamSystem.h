@@ -102,7 +102,7 @@ public:
 
 	bool doMappingIteration();
 
-	int findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forceParent=true, bool useFABMAP=true, float closeCandidatesTH=1.0);
+	int findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forceParent=true, bool useFABMAP=true, float closeCandidatesTH = 1.0f);
 	
 	bool optimizationIteration(int itsPerTry, float minChange);
 	

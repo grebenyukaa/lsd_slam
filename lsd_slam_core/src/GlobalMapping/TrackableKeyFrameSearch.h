@@ -68,7 +68,7 @@ public:
 	 * Finds candidates for trackable frames.
 	 * Returns the most likely candidates first.
 	 */
-	std::unordered_set<Frame*, std::hash<Frame*>, std::equal_to<Frame*>, Eigen::aligned_allocator< Frame* > > findCandidates(Frame* keyframe, Frame* &fabMapResult_out, bool includeFABMAP=true, bool closenessTH=1.0);
+	std::unordered_set<Frame*, std::hash<Frame*>, std::equal_to<Frame*>, Eigen::aligned_allocator< Frame* > > findCandidates(Frame* keyframe, Frame* &fabMapResult_out, bool includeFABMAP=true, float closenessTH = 1.0f);
 	Frame* findRePositionCandidate(Frame* frame, float maxScore=1);
 	
 

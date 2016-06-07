@@ -27,8 +27,9 @@
 #include "lsd_slam_viewer/keyframeGraphMsg.h"
 #include "lsd_slam_viewer/keyframeMsg.h"
 #include "boost/thread.hpp"
+#include <list>
 
-class KeyFrameDisplay;
+#include "KeyFrameDisplay.h"
 
 
 struct GraphConstraint
@@ -62,18 +63,23 @@ public:
 
 	void addMsg(lsd_slam_viewer::keyframeMsgConstPtr msg);
 	void addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
+	
+	void addConstraint(const KeyFrameDisplayPtr& from, const KeyFrameDisplayPtr& to, float err = 0.0);
+	void addGraph(int pivot, int other_pivot, const KeyFrameGraphDisplay* graph);
+	int findEqualKF(const KeyFrameDisplayPtr& kf, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f);
 
-
+	inline const std::map<int, KeyFrameDisplayPtr>& getKeyFramesByID() const { return keyframesByID; }
+	inline const std::list<GraphConstraintPt>& getConstraints() const { return constraints; }
 
 	bool flushPointcloud;
 	bool printNumbers;
+	
 private:
-	std::map<int, KeyFrameDisplay*> keyframesByID;
-	std::vector<KeyFrameDisplay*> keyframes;
-	std::vector<GraphConstraintPt> constraints;
+	std::map<int, KeyFrameDisplayPtr> keyframesByID;
+	//std::list<KeyFrameDisplayPtr> keyframes;
+	std::list<GraphConstraintPt> constraints;
 
 	boost::mutex dataMutex;
-
 };
 
 #endif /* KEYFRAMEGRAPHDISPLAY_H_ */

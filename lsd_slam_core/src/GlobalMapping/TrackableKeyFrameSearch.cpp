@@ -171,7 +171,7 @@ Frame* TrackableKeyFrameSearch::findRePositionCandidate(Frame* frame, float maxS
 	}
 }
 
-std::unordered_set<Frame*, std::hash<Frame*>, std::equal_to<Frame*>, Eigen::aligned_allocator< Frame* > > TrackableKeyFrameSearch::findCandidates(Frame* keyframe, Frame* &fabMapResult_out, bool includeFABMAP, bool closenessTH)
+std::unordered_set<Frame*, std::hash<Frame*>, std::equal_to<Frame*>, Eigen::aligned_allocator< Frame* > > TrackableKeyFrameSearch::findCandidates(Frame* keyframe, Frame* &fabMapResult_out, bool includeFABMAP, float closenessTH)
 {
 	std::unordered_set<Frame*, std::hash<Frame*>, std::equal_to<Frame*>, Eigen::aligned_allocator< Frame* > > results;
 

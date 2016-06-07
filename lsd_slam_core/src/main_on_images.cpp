@@ -58,9 +58,11 @@ int getdir (std::string dir, std::vector<std::string> &files)
 {
     DIR *dp;
     struct dirent *dirp;
+	printf("Opendir\n");
     if((dp  = opendir(dir.c_str())) == NULL)
     {
-        return -1;
+        printf("  failed\n");
+		return -1;
     }
 
     while ((dirp = readdir(dp)) != NULL) {

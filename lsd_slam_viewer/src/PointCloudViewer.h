@@ -29,14 +29,15 @@
 #include "qevent.h"
 #include "lsd_slam_viewer/keyframeMsg.h"
 #include "lsd_slam_viewer/keyframeGraphMsg.h"
+#include "KeyFrameDisplay.h"
 
 #include "QGLViewer/keyFrameInterpolator.h"
+//#include "PointCloudViewerBase.h"
 
 class QApplication;
 
 class KeyFrameGraphDisplay;
 class CameraDisplay;
-class KeyFrameDisplay;
 
 #include "settings.h"
 
@@ -145,21 +146,19 @@ public:
     }
 };
 
-
-
-
-class PointCloudViewer : public QGLViewer
+class PointCloudViewer : public QGLViewer/*PointCloudViewerBase*/
 {
 public:
-	PointCloudViewer();
-	~PointCloudViewer();
-
+	PointCloudViewer(int m_agentId);
+	virtual ~PointCloudViewer();
 
 	void reset();
+	void resetAnimation(double t, int frameId);
 
 	void addFrameMsg(lsd_slam_viewer::keyframeMsgConstPtr msg);
 	void addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
-
+	
+	KeyFrameGraphDisplay* getKFGraphDisplay() { return graphDisplay; };
 
 protected :
 	virtual void draw();
@@ -177,13 +176,10 @@ private:
 	KeyFrameGraphDisplay* graphDisplay;
 
 	// displays only current keyframe (which is not yet in the graph).
-	KeyFrameDisplay* currentCamDisplay;
-
-
+	KeyFrameDisplayPtr currentCamDisplay;
 
 	// meddle mutex
 	boost::mutex meddleMutex;
-
 
 	void setToVideoSize();
 	bool resetRequested;
@@ -196,10 +192,8 @@ private:
 	double lastCamTime;
 	int lastCamID;
 
-
 	double lastLocalSaveTime;
 	double lastRealSaveTime;
-
 
 	// for keyframe interpolation
 	int KFLastPCSeq;
@@ -217,10 +211,7 @@ private:
 	double animationPlaybackTime;
 	int animationPlaybackID;
 
-
-
 	double lastAnimTime;
-
 
 	void remakeAnimation();
 };

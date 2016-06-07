@@ -1,3 +1,5 @@
+uint32 agentId
+
 # data as serialization of sim(3)'s: (int id, float[7] camToWorld)
 uint32 numFrames
 uint8[] frameData

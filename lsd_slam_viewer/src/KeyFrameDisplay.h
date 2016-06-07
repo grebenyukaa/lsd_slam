@@ -22,6 +22,7 @@
 
 #undef Success
 #include <Eigen/Core>
+#include <memory>
 
 #include "QGLViewer/qglviewer.h"
 #include "lsd_slam_viewer/keyframeMsg.h"
@@ -61,7 +62,11 @@ public:
 
 	int flushPC(std::ofstream* f);
 
-
+	inline float getFx() const { return fx; }
+	inline float getFy() const { return fy; }
+	inline int getWidth() const { return width; }
+	inline int getHeight() const { return height; }
+	inline const InputPointDense* getPointDenseStruct() const { return originalInput; }
 
 	int id;
 	double time;
@@ -99,5 +104,4 @@ private:
 
 };
 
-
-
+typedef std::shared_ptr<KeyFrameDisplay> KeyFrameDisplayPtr;

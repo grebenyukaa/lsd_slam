@@ -23,7 +23,9 @@ set(QT_USE_QTOPENGL TRUE)
 set(QT_USE_QTXML TRUE)
 find_package(QGLViewer REQUIRED)
 find_package(Eigen3 REQUIRED)
-include_directories(${QT_INCLUDES} ${EIGEN3_INCLUDE_DIR} ${QGLVIEWER_INCLUDE_DIR})
+find_package(TBB REQUIRED)
+
+include_directories(${QT_INCLUDES} ${EIGEN3_INCLUDE_DIR} ${QGLVIEWER_INCLUDE_DIR} ${TBB_INCLUDE_DIRS})
 
 rosbuild_find_ros_package(dynamic_reconfigure)
 include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
@@ -41,18 +43,20 @@ rosbuild_genmsg()
 # gcc 6 related flags -Wno-ignored-attributes -Wno-misleading-indentation have to be used because of annoying warnings from Eigen
 rosbuild_check_for_sse()
 set(CMAKE_CXX_FLAGS
-   "${SSE_FLAGS} -Wno-ignored-attributes -Wno-misleading-indentation"
+   "${SSE_FLAGS} ${TBB_DEFINITIONS} -Wno-ignored-attributes -Wno-misleading-indentation"
 )
 
 # SSE Sources files
-set(SOURCE_FILES         
+set(SOURCE_FILES
+  src/MultiAgentPointCloudViewer.cpp         
   src/PointCloudViewer.cpp
   src/KeyFrameDisplay.cpp
   src/KeyFrameGraphDisplay.cpp
   src/settings.cpp
 )
 
-set(HEADER_FILES     
+set(HEADER_FILES
+  src/MultiAgentPointCloudViewer.h
   src/PointCloudViewer.h
   src/KeyFrameDisplay.h
   src/KeyFrameGraphDisplay.h
@@ -65,7 +69,7 @@ include_directories(
 
 rosbuild_add_executable(viewer src/main_viewer.cpp ${SOURCE_FILES} ${HEADER_FILES})
 
-target_link_libraries(viewer ${QGLViewer_LIBRARIES} ${QT_LIBRARIES} ${QGLVIEWER_LIBRARY} GL glut GLU)
+target_link_libraries(viewer ${QGLViewer_LIBRARIES} ${QT_LIBRARIES} ${QGLVIEWER_LIBRARY} ${TBB_LIBRARIES} GL glut GLU)
 
 rosbuild_link_boost(viewer thread)
 

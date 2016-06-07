@@ -126,7 +126,7 @@ public:
 	 */
 	void calculateGraphDistancesToFrame(Frame* frame, std::unordered_map<Frame*, int>* distanceMap);
 	
-	inline int agendId() const { return m_agentId; }
+	inline int agentId() const { return m_agentId; }
 
 	int totalPoints;
 	int totalEdges;

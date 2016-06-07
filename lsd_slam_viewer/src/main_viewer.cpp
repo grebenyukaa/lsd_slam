@@ -27,36 +27,17 @@
 #include <dynamic_reconfigure/server.h>
 #include "lsd_slam_viewer/LSDSLAMViewerParamsConfig.h"
 #include <qapplication.h>
-#include <QMutex>
-#include <QMutexLocker>
+#include <boost/foreach.hpp>
 
 #include "lsd_slam_viewer/keyframeGraphMsg.h"
 #include "lsd_slam_viewer/keyframeMsg.h"
+#include "MultiAgentPointCloudViewer.h"
 
-
-#include "boost/foreach.hpp"
 #include "rosbag/bag.h"
 #include "rosbag/query.h"
 #include "rosbag/view.h"
 
-QMutex viewerInitializationMutex;
-std::map<int, PointCloudViewer> viewers;
-
-void initViewer(const int id, PointCloudViewer& viewer)
-{
-	QString wnd_title = QString("PointCloud Viewer #%1").arg(id);
-	
-	#if QT_VERSION < 0x040000
-		// Set the viewer as the application main widget.
-		//application.setMainWidget(viewer);
-		assert("Not implemented!" && 0);
-	#else
-		viewer.setWindowTitle(wnd_title);
-	#endif
-
-	// Make the viewer window visible on screen.
-	viewer.show();
-}
+MultiAgentPointCloudViewer* mvwr = nullptr;
 
 void dynConfCb(lsd_slam_viewer::LSDSLAMViewerParamsConfig &config, uint32_t level)
 {
@@ -84,26 +65,15 @@ void dynConfCb(lsd_slam_viewer::LSDSLAMViewerParamsConfig &config, uint32_t leve
 
 void frameCb(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
-	{
-		QMutexLocker lck(&viewerInitializationMutex);
-		if (viewers.find(msg->agentId) == viewers.cend())
-			initViewer(msg->agentId, viewers[msg->agentId]);
-	}
-	
+	printf("  frame cb, agentId: %d\n", (int)msg->agentId);	
 	if(msg->time > lastFrameTime) return;
-
-	viewers[msg->agentId].addFrameMsg(msg);
+	mvwr->addFrameMsg(msg);
 }
 
 void graphCb(lsd_slam_viewer::keyframeGraphMsgConstPtr msg)
 {
-	{
-		QMutexLocker lck(&viewerInitializationMutex);
-		if (viewers.find(msg->agentId) == viewers.cend())
-			initViewer(msg->agentId, viewers[msg->agentId]);
-	}
-	
-	viewers[msg->agentId].addGraphMsg(msg);
+	printf("  graph cb, agentId: %d\n", (int)msg->agentId);	
+	mvwr->addGraphMsg(msg);
 }
 
 void rosThreadLoop( int argc, char** argv )
@@ -142,7 +112,7 @@ void rosFileLoop( int argc, char** argv )
 	srv.setCallback(dynConfCb);
 
 	rosbag::Bag bag;
-	bag.open(argv[1], rosbag::bagmode::Read);
+	bag.open(argv[2], rosbag::bagmode::Read);
 
 	std::vector<std::string> topics;
 	topics.push_back(std::string("/lsd_slam/liveframes"));
@@ -175,13 +145,23 @@ void rosFileLoop( int argc, char** argv )
 
 int main( int argc, char** argv )
 {
+	if (argc < 2)
+	{
+		printf("Usage: %s NAgents\n", argv[0]);
+		exit(1);
+	}
+	int nAgents = atoi(argv[1]);
+	
 	printf("Started QApplication thread\n");
 	// Read command lines arguments.
 	QApplication application(argc,argv);
+	
+	mvwr = new MultiAgentPointCloudViewer(nAgents);
+	mvwr->init();
 
 	boost::thread rosThread;
 
-	if(argc > 1)
+	if (argc > 2)
 	{
 		rosThread = boost::thread(rosFileLoop, argc, argv);
 	}
@@ -196,6 +176,8 @@ int main( int argc, char** argv )
 	printf("Shutting down... \n");
 	ros::shutdown();
 	rosThread.join();
+	
+	delete mvwr;
+	
 	printf("Done. \n");
-
 }

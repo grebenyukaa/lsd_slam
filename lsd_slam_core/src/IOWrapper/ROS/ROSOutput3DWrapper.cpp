@@ -75,6 +75,7 @@ void ROSOutput3DWrapper::publishKeyframe(Frame* f)
 	boost::shared_lock<boost::shared_mutex> lock = f->getActiveLock();
 
 	fMsg.id = f->id();
+	fMsg.agentId = f->agentId();
 	fMsg.time = f->timestamp();
 	fMsg.isKeyframe = true;
 
@@ -167,6 +168,7 @@ void ROSOutput3DWrapper::publishKeyframeGraph(KeyFrameGraph* graph)
 	lsd_slam_viewer::keyframeGraphMsg gMsg;
 
 	graph->edgesListsMutex.lock();
+	gMsg.agentId = graph->agentId();
 	gMsg.numConstraints = graph->edgesAll.size();
 	gMsg.constraintsData.resize(gMsg.numConstraints * sizeof(GraphConstraint));
 	GraphConstraint* constraintData = (GraphConstraint*)gMsg.constraintsData.data();
