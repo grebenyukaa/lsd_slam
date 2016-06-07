@@ -28,7 +28,6 @@
 #include "ImageSLAMWrapper.h"
 
 #include "GlobalMapping/KeyFrameGraph.h"
-#include "GlobalMapping/GlobalKeyFrameGraph.h"
 
 #include <sstream>
 #include <fstream>
@@ -141,8 +140,6 @@ int main( int argc, char** argv )
 {
 	ros::init(argc, argv, "LSD_SLAM");
 
-	globalKeyFrameGraph = new KeyFrameGraph(0);
-
 	dynamic_reconfigure::Server<lsd_slam_core::LSDParamsConfig> srv(ros::NodeHandle("~"));
 	srv.setCallback(dynConfCb);
 
@@ -207,7 +204,7 @@ int main( int argc, char** argv )
 		}
 		else
 		{
-			printf("folder %s is empty!", folders[i].c_str());
+			printf("folder %s is empty!\n", folders[i].c_str());
 		}
 	}
 
@@ -234,8 +231,6 @@ int main( int argc, char** argv )
 				break;
 		}
 	}
-
-	delete globalKeyFrameGraph;
 
 	return 0;
 }

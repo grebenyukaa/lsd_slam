@@ -11,6 +11,9 @@ namespace lsd_slam
 {
     SlamSystemWrapper::SlamSystemWrapper()
         :
+        m_undistorter(nullptr),
+        m_outputWrapper(nullptr),
+        m_system(nullptr),
         m_runningIDX(0),
         m_fakeTimeStamp(0),
         m_finalized(false),
