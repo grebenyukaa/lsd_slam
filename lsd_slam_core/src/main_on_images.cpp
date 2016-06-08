@@ -176,11 +176,14 @@ int main( int argc, char** argv )
 		exit(1);
 	}
 	
+	srand(42);
+	
 	// get HZ
-	double hz = 0;
+	int hz = 0;
 	if(!ros::param::get("~hz", hz))
 		hz = 0;
 	ros::param::del("~hz");
+	printf("HZ = %d\n", hz);
 
 	//initialize wrappers
 	int frameIDOffset = 0;

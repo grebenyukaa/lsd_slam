@@ -96,7 +96,7 @@ namespace lsd_slam
         if (m_runningIDX == 0)
             m_system->randomInit(image.data, m_fakeTimeStamp, m_runningIDX + m_idOffset);
         else
-            m_system->trackFrame(image.data, m_runningIDX + m_idOffset, m_hz == 0, m_fakeTimeStamp);
+            m_system->trackFrame(image.data, m_runningIDX + m_idOffset, m_hz, m_fakeTimeStamp);
         ++m_runningIDX;
         m_fakeTimeStamp += 0.03;
         
