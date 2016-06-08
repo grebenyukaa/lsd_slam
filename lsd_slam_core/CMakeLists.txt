@@ -39,7 +39,7 @@ add_definitions("-DENABLE_SSE")
 
 # Also add some useful compiler flag
 set(CMAKE_CXX_FLAGS
-   "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -march=native  -std=c++0x"
+   "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -march=native  -std=c++0x -Wno-ignored-attributes -Wno-misleading-indentation -Wno-deprecated-declarations"
 ) 
 
 # Set source files
@@ -75,6 +75,7 @@ set(SOURCE_FILES
 include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/src
+  ${PROJECT_SOURCE_DIR}/../lsd_slam_viewer/msg-gen/src/cpp
   ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
   ${CSPARSE_INCLUDE_DIR} #Has been set by SuiteParse
   ${CHOLMOD_INCLUDE_DIR} #Has been set by SuiteParse

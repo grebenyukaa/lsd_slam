@@ -857,31 +857,36 @@ void SlamSystem::gtDepthInit(uchar* image, float* depth, double timeStamp, int i
 void SlamSystem::randomInit(uchar* image, double timeStamp, int id)
 {
 	printf("Doing Random initialization!\n");
-
-	if(!doMapping)
-		printf("WARNING: mapping is disabled, but we just initialized... THIS WILL NOT WORK! Set doMapping to true.\n");
-
-
-	currentKeyFrameMutex.lock();
-
-	currentKeyFrame.reset(new Frame(id, width, height, K, timeStamp, image));
-	map->initializeRandomly(currentKeyFrame.get());
-	keyFrameGraph->addFrame(currentKeyFrame.get());
-
-	currentKeyFrameMutex.unlock();
-
-	if(doSlam)
+	try
 	{
-		keyFrameGraph->idToKeyFrameMutex.lock();
-		keyFrameGraph->idToKeyFrame.insert(std::make_pair(currentKeyFrame->id(), currentKeyFrame));
-		keyFrameGraph->idToKeyFrameMutex.unlock();
+		if(!doMapping)
+			printf("WARNING: mapping is disabled, but we just initialized... THIS WILL NOT WORK! Set doMapping to true.\n");
+
+
+		currentKeyFrameMutex.lock();
+
+		currentKeyFrame.reset(new Frame(id, width, height, K, timeStamp, image));
+		map->initializeRandomly(currentKeyFrame.get());
+		keyFrameGraph->addFrame(currentKeyFrame.get());
+
+		currentKeyFrameMutex.unlock();
+
+		if(doSlam)
+		{
+			keyFrameGraph->idToKeyFrameMutex.lock();
+			keyFrameGraph->idToKeyFrame.insert(std::make_pair(currentKeyFrame->id(), currentKeyFrame));
+			keyFrameGraph->idToKeyFrameMutex.unlock();
+		}
+		if(continuousPCOutput && outputWrapper != 0) outputWrapper->publishKeyframe(currentKeyFrame.get());
+
+
+		if (displayDepthMap || depthMapScreenshotFlag)
+			debugDisplayDepthMap();
 	}
-	if(continuousPCOutput && outputWrapper != 0) outputWrapper->publishKeyframe(currentKeyFrame.get());
-
-
-	if (displayDepthMap || depthMapScreenshotFlag)
-		debugDisplayDepthMap();
-
+	catch (const cv::Exception& e)
+	{
+		printf("WARNING: %s\n", e.what());
+	}
 
 	printf("Done Random initialization!\n");
 
