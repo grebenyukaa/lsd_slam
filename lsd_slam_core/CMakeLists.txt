@@ -75,7 +75,6 @@ set(SOURCE_FILES
 include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/src
-  ${PROJECT_SOURCE_DIR}/../lsd_slam_viewer/msg-gen/src/cpp
   ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
   ${CSPARSE_INCLUDE_DIR} #Has been set by SuiteParse
   ${CHOLMOD_INCLUDE_DIR} #Has been set by SuiteParse
