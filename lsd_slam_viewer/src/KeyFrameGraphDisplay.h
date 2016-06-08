@@ -76,7 +76,7 @@ public:
 	
 private:
 	std::map<int, KeyFrameDisplayPtr> keyframesByID;
-	//std::list<KeyFrameDisplayPtr> keyframes;
+	std::list<KeyFrameDisplayPtr> keyframes;
 	std::list<GraphConstraintPt> constraints;
 
 	boost::mutex dataMutex;

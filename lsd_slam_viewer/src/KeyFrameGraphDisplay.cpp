@@ -44,13 +44,15 @@ void KeyFrameGraphDisplay::draw()
 
 	// draw keyframes
 	float color[3] = {0,0,1};
-	for (auto frame_kv : keyframesByID)
+	int idx = 0;
+	for (auto frame : keyframes)
 	{
 		if(showKFCameras)
-			frame_kv.second->drawCam(lineTesselation, color);
+			frame->drawCam(lineTesselation, color);
 
-		if((showKFPointclouds && (int)frame_kv.first > cutFirstNKf) || frame_kv.first == (int)keyframesByID.size() - 1)
-			frame_kv.second->drawPC(pointTesselation, 1);
+		if((showKFPointclouds && idx > cutFirstNKf) || idx == (int)keyframesByID.size() - 1)
+			frame->drawPC(pointTesselation, 1);
+		++idx;
 	}
 
 	if(flushPointcloud)
@@ -58,10 +60,12 @@ void KeyFrameGraphDisplay::draw()
 		printf("Flushing Pointcloud to %s!\n", (ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
 		std::ofstream f((ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
 		int numpts = 0;
-		for (auto frame_kv : keyframesByID)
+		int idx = 0;
+		for (auto frame : keyframes)
 		{
-			if((int)frame_kv.first > cutFirstNKf)
-				numpts += frame_kv.second->flushPC(&f);
+			if (idx > cutFirstNKf)
+				numpts += frame->flushPC(&f);
+			++idx;
 		}
 		f.flush();
 		f.close();
@@ -182,10 +186,11 @@ int KeyFrameGraphDisplay::findEqualKF(const KeyFrameDisplayPtr& kf, float Closen
 void KeyFrameGraphDisplay::addMsg(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
 	dataMutex.lock();
-	if(keyframesByID.count(msg->id) == 0)
+	if (keyframesByID.count(msg->id) == 0)
 	{
-		keyframesByID[msg->id] = std::make_shared<KeyFrameDisplay>();
-		//keyframes.push_back(disp);
+		auto disp = std::make_shared<KeyFrameDisplay>();
+		keyframesByID[msg->id] = disp;
+		keyframes.push_back(disp);
 
 	//	printf("added new KF, now there are %d!\n", (int)keyframes.size());
 	}
