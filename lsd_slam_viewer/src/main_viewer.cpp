@@ -18,16 +18,16 @@
 * along with dvo. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <qapplication.h>
+#include <boost/foreach.hpp>
+#include <boost/thread.hpp>
 
 #include "ros/ros.h"
-#include "boost/thread.hpp"
 #include "settings.h"
 #include "PointCloudViewer.h"
 
 #include <dynamic_reconfigure/server.h>
 #include "lsd_slam_viewer/LSDSLAMViewerParamsConfig.h"
-#include <qapplication.h>
-#include <boost/foreach.hpp>
 
 #include "lsd_slam_viewer/keyframeGraphMsg.h"
 #include "lsd_slam_viewer/keyframeMsg.h"
@@ -142,8 +142,7 @@ void rosFileLoop( int argc, char** argv )
 	exit(1);
 }
 
-
-int main( int argc, char** argv )
+int main(int argc, char** argv)
 {
 	if (argc < 2)
 	{

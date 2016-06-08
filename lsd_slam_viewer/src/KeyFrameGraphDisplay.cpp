@@ -115,13 +115,11 @@ void KeyFrameGraphDisplay::draw()
 			double colorScalar = std::max(0.0, std::min(1.0, constraint.err / 0.05));
 			glColor3f(colorScalar, 1 - colorScalar, 0);
 
-
 			Sophus::Vector3f t = constraint.from->camToWorld.translation();
-			glVertex3f((GLfloat) t[0],(GLfloat) t[1], (GLfloat) t[2]);
+			glVertex3f((GLfloat)t[0], (GLfloat)t[1], (GLfloat)t[2]);
 
 			t = constraint.to->camToWorld.translation();
-			glVertex3f((GLfloat) t[0],(GLfloat) t[1], (GLfloat) t[2]);
-
+			glVertex3f((GLfloat)t[0], (GLfloat)t[1], (GLfloat)t[2]);
 		}
 		glEnd();
 	}
