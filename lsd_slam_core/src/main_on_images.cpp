@@ -137,7 +137,7 @@ int main( int argc, char** argv )
 
 	packagePath = ros::package::getPath("lsd_slam_core")+"/";
 
-
+	srand(42);
 
 	// get camera calibration in form of an undistorter object.
 	// if no undistortion is required, the undistorter will just pass images through.
