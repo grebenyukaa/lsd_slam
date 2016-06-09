@@ -28,7 +28,7 @@ namespace lsd_slam
     }
 
     //undisorter pointer is managed by this class
-    void SlamSystemWrapper::init(const int agentId, const int idOffset, const Undistorter* undistorter, const double hz)
+    void SlamSystemWrapper::init(const int agentId, const int idOffset, const Undistorter* undistorter, const int hz)
     {
         m_hz = hz;
         m_undistorter = undistorter;
@@ -96,7 +96,7 @@ namespace lsd_slam
         if (m_runningIDX == 0)
             m_system->randomInit(image.data, m_fakeTimeStamp, m_runningIDX + m_idOffset);
         else
-            m_system->trackFrame(image.data, m_runningIDX + m_idOffset, m_hz, m_fakeTimeStamp);
+            m_system->trackFrame(image.data, m_runningIDX + m_idOffset, m_hz == 0, m_fakeTimeStamp);
         ++m_runningIDX;
         m_fakeTimeStamp += 0.03;
         
@@ -107,7 +107,6 @@ namespace lsd_slam
     {
         m_runningIDX = 0;
         m_fakeTimeStamp = 0;
-        m_hz = 0;
         delete m_system;
         //TODO: global graph. Remove frames with corresponding agent id?
         m_system = new SlamSystem(m_undistorter->getOutputWidth(), m_undistorter->getOutputHeight(), m_K, m_agentId, doSlam);

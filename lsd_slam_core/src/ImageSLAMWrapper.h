@@ -23,7 +23,7 @@ namespace lsd_slam
         ~SlamSystemWrapper();
         
         //undisorter pointer is managed by this class
-        void init(const int agentId, const int idOffset, const Undistorter* undistorter, const double hz);
+        void init(const int agentId, const int idOffset, const Undistorter* undistorter, const int hz);
         void setImages(const std::string& folder, const std::vector<std::string>& files);
         bool processNextImage();
         void reset();
@@ -39,7 +39,7 @@ namespace lsd_slam
         int m_runningIDX;
         float m_fakeTimeStamp;
         bool m_finalized;
-        double m_hz;
+        int m_hz;
         int m_agentId;
         int m_idOffset;
     };
