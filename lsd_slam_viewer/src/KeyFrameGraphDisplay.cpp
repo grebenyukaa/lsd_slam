@@ -26,8 +26,13 @@
 #include <fstream>
 
 #include "ros/package.h"
+#include "MultiAgentPointCloudViewer.h"
+#include "PointCloudViewer.h"
 
-KeyFrameGraphDisplay::KeyFrameGraphDisplay()
+KeyFrameGraphDisplay::KeyFrameGraphDisplay(int agentId, PointCloudViewer* vwr)
+	:
+	agentId(agentId),
+	vwr(vwr)
 {
 	flushPointcloud = false;
 	printNumbers = false;
@@ -35,7 +40,6 @@ KeyFrameGraphDisplay::KeyFrameGraphDisplay()
 
 KeyFrameGraphDisplay::~KeyFrameGraphDisplay()
 {}
-
 
 void KeyFrameGraphDisplay::draw()
 {
@@ -45,13 +49,17 @@ void KeyFrameGraphDisplay::draw()
 	// draw keyframes
 	float color[3] = {0,0,1};
 	int idx = 0;
-	for (auto frame : keyframes)
+	for (auto frame_kv : keyframesByID)
 	{
-		if(showKFCameras)
-			frame->drawCam(lineTesselation, color);
+		const auto& frame = frame_kv.second;
+		const Sophus::Sim3f& alignTransform = vwr->getParent()->getViewer(frame->getAgentId())->getAlignTransform();
+		
+		if (showKFCameras)
+			frame->drawCam(alignTransform, lineTesselation, color);
 
-		if((showKFPointclouds && idx > cutFirstNKf) || idx == (int)keyframesByID.size() - 1)
-			frame->drawPC(pointTesselation, 1);
+		if ((showKFPointclouds && idx > cutFirstNKf) || idx == (int)keyframesByID.size() - 1)
+			frame->drawPC(alignTransform, pointTesselation, 1);
+		
 		++idx;
 	}
 
@@ -61,10 +69,13 @@ void KeyFrameGraphDisplay::draw()
 		std::ofstream f((ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
 		int numpts = 0;
 		int idx = 0;
-		for (auto frame : keyframes)
+		for (auto frame_kv : keyframesByID)
 		{
+			const auto& frame = frame_kv.second;
+			const Sophus::Sim3f& alignTransform = vwr->getParent()->getViewer(frame->getAgentId())->getAlignTransform();
+			
 			if (idx > cutFirstNKf)
-				numpts += frame->flushPC(&f);
+				numpts += frame->flushPC(alignTransform, &f);
 			++idx;
 		}
 		f.flush();
@@ -131,7 +142,7 @@ void KeyFrameGraphDisplay::draw()
 	dataMutex.unlock();
 }
 
-int KeyFrameGraphDisplay::findEqualKF(const KeyFrameDisplayPtr& kf, float ClosenessTH, float KFDistWeight)
+int KeyFrameGraphDisplay::findEqualKF(const Sophus::Sim3f& alignTransform, const KeyFrameDisplayPtr& kf, double& dist, double& angleCos, float ClosenessTH, float KFDistWeight)
 {
 	float fowX, fowY;
 	fowX = 2 * atanf((float)((kf->getWidth() / kf->getFx() / 2.0f)));
@@ -146,20 +157,27 @@ int KeyFrameGraphDisplay::findEqualKF(const KeyFrameDisplayPtr& kf, float Closen
 	// e.g. if the FoV is 130°, then it is angleTH*130°.
 	float cosAngleTH = cosf(angleTH*0.5f*(fowX + fowY));
 
-	Eigen::Vector3f pos = kf->camToWorld.translation();
-	Eigen::Vector3f viewingDir = kf->camToWorld.rotationMatrix().rightCols<1>();
+	Sophus::Sim3f ctw = alignTransform * kf->camToWorld;
+	Eigen::Vector3f pos = ctw.translation();
+	Eigen::Vector3f viewingDir = ctw.rotationMatrix().rightCols<1>();
 
 	float iDepth = kf->getPointDenseStruct()->idepth;
 
 	float distFacReciprocal = 1;
 	if(checkBothScales)
-		distFacReciprocal = iDepth / kf->camToWorld.scale();
+		distFacReciprocal = iDepth / ctw.scale();
 
 	// for each frame, calculate the rough score, consisting of pose, scale and angle overlap.
-	int idKF = -1;
+	double minDist = std::numeric_limits<double>::max();
+	double maxAngleCos = 0;
+	int idBestCos = -1;
+	int idBestDist = -1;
+	int idBestKF = -1;
 	dataMutex.lock();
 	for (const auto& kf_kv : keyframesByID)
 	{
+		if (kf_kv.second->getAgentId() == kf->getAgentId()) continue;
+		
 		const KeyFrameDisplayPtr& curKF = kf_kv.second;
 		Eigen::Vector3f otherPos = curKF->camToWorld.translation();
 		float curIDepth = curKF->getPointDenseStruct()->idepth;
@@ -174,13 +192,36 @@ int KeyFrameGraphDisplay::findEqualKF(const KeyFrameDisplayPtr& kf, float Closen
 		Eigen::Vector3f otherViewingDir = curKF->camToWorld.rotationMatrix().rightCols<1>();
 		float dirDotProd = otherViewingDir.dot(viewingDir);
 		if (dirDotProd < cosAngleTH) continue;
-
-		idKF = kf_kv.first;
-		break;
+		
+		bool betterDist = dNorm2 < minDist;
+		bool betterCos = dirDotProd > maxAngleCos;
+		if (betterDist && betterCos)
+		{
+			idBestDist = kf_kv.first;
+			minDist = dNorm2;
+			idBestCos = kf_kv.first;
+			maxAngleCos = dirDotProd;
+			idBestKF = kf_kv.first;
+		}
+		else
+		{
+			if (betterCos)
+			{
+				idBestCos = kf_kv.first;
+				maxAngleCos = dirDotProd;
+			}
+			else
+			{
+				idBestDist = kf_kv.first;
+				minDist = dNorm2;
+			}
+		}
 	}
 	dataMutex.unlock();
 
-	return idKF;
+	dist = minDist;
+	angleCos = maxAngleCos;
+	return idBestKF >= 0 ? idBestKF : idBestDist;
 }
 
 void KeyFrameGraphDisplay::addMsg(lsd_slam_viewer::keyframeMsgConstPtr msg)
@@ -188,9 +229,9 @@ void KeyFrameGraphDisplay::addMsg(lsd_slam_viewer::keyframeMsgConstPtr msg)
 	dataMutex.lock();
 	if (keyframesByID.count(msg->id) == 0)
 	{
-		auto disp = std::make_shared<KeyFrameDisplay>();
+		auto disp = std::make_shared<KeyFrameDisplay>(agentId);
 		keyframesByID[msg->id] = disp;
-		keyframes.push_back(disp);
+		//keyframes.push_back(disp);
 
 	//	printf("added new KF, now there are %d!\n", (int)keyframes.size());
 	}
@@ -267,20 +308,18 @@ void KeyFrameGraphDisplay::addConstraint(const KeyFrameDisplayPtr& from, const K
 void KeyFrameGraphDisplay::addGraph(int pivot, int other_pivot, const KeyFrameGraphDisplay* graph)
 {
 	dataMutex.lock();
-	
-	//Sophus::Sim3f transformToOtherPivot = (keyframesByID.at(pivot)->camToWorld.inverse() * graph->getKeyFramesByID().at(other_pivot)->camToWorld).inverse();
-	
 	for (auto frame_kv : graph->getKeyFramesByID())
 	{
 		keyframesByID[frame_kv.first] = frame_kv.second;
-		//keyframesByID[frame_kv.first]->camToWorld = transformToOtherPivot * keyframesByID[frame_kv.first]->camToWorld;
 	}
-	
 	const auto& other_constraints = graph->getConstraints();
 	std::copy(other_constraints.cbegin(), other_constraints.cend(), constraints.end());
 	
-	addConstraint(keyframesByID.at(pivot), graph->getKeyFramesByID().at(other_pivot));
-	addConstraint(graph->getKeyFramesByID().at(other_pivot), keyframesByID.at(pivot)); //???
+	const auto& otherPivotFrame = graph->getKeyFramesByID().at(other_pivot);
+	const auto& pivotFrame = keyframesByID.at(pivot);
+
+	addConstraint(pivotFrame, otherPivotFrame);
+	addConstraint(otherPivotFrame, pivotFrame);
 	
 	dataMutex.unlock();
 }

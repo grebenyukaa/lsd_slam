@@ -38,11 +38,18 @@
 
 #include "KeyFrameDisplay.h"
 #include "KeyFrameGraphDisplay.h"
+#include "MultiAgentPointCloudViewer.h"
 
 #include <iostream>
 #include <fstream>
 
-PointCloudViewer::PointCloudViewer(int agentId)
+PointCloudViewer::PointCloudViewer(int agentId, MultiAgentPointCloudViewer* parent)
+	:
+	agentId(agentId),
+	parentVwr(parent),
+	minAlignDist(std::numeric_limits<double>::max()),
+	maxAlignAngleCos(0),
+	alignTrDelta(std::numeric_limits<double>::max())
 {
 	setPathKey(Qt::Key_0,0);
 	setPathKey(Qt::Key_1,1);
@@ -71,6 +78,13 @@ PointCloudViewer::PointCloudViewer(int agentId)
 
 	setSnapshotFormat(QString("PNG"));
 
+	setShortcut(MOVE_CAMERA_UP, Qt::Key_Up);
+	setShortcut(MOVE_CAMERA_DOWN, Qt::Key_Down);
+	setShortcut(MOVE_CAMERA_LEFT, Qt::Key_Left);
+	setShortcut(MOVE_CAMERA_RIGHT, Qt::Key_Right);
+	setShortcut(INCREASE_FLYSPEED, Qt::Key_Plus);
+	setShortcut(DECREASE_FLYSPEED, Qt::Key_Minus);
+
 	reset();
 }
 
@@ -83,14 +97,18 @@ PointCloudViewer::~PointCloudViewer()
 
 
 void PointCloudViewer::reset()
-{
+{	
 	if(currentCamDisplay != 0)
 		currentCamDisplay = nullptr;
 	if(graphDisplay != 0)
 		delete graphDisplay;
 
-	currentCamDisplay = std::make_shared<KeyFrameDisplay>();
-	graphDisplay = new KeyFrameGraphDisplay();
+	currentCamDisplay = std::make_shared<KeyFrameDisplay>(agentId);
+	graphDisplay = new KeyFrameGraphDisplay(agentId, this);
+
+	minAlignDist = std::numeric_limits<double>::max();
+	maxAlignAngleCos = 0;
+	alignTrDelta = std::numeric_limits<double>::max();
 
 	KFcurrent = 0;
 	KFLastPCSeq = -1;
@@ -108,7 +126,6 @@ void PointCloudViewer::reset()
 	snprintf(buf,500,"mkdir %s",save_folder.c_str());
 	k += system(buf);
 
-
 	assert(k != -42);
 
 	setSceneRadius(80);
@@ -116,6 +133,11 @@ void PointCloudViewer::reset()
 	lastAutoplayCheckedSaveTime = -1;
 
 	animationPlaybackEnabled = false;
+}
+
+int PointCloudViewer::getKFCount()
+{
+	return (int)graphDisplay->getKeyFramesByID().size();
 }
 
 void PointCloudViewer::resetAnimation(double t, int frameId)
@@ -171,16 +193,13 @@ void PointCloudViewer::draw()
 {
 	meddleMutex.lock();
 
-
 	if(resetRequested)
 	{
 		reset();
 		resetRequested = false;
 	}
 
-
 	glPushMatrix();
-
 
 	if(animationPlaybackEnabled)
 	{
@@ -201,8 +220,6 @@ void PointCloudViewer::draw()
 		kfInt->interpolateAtTime(tm);
 		camera()->frame()->setFromMatrix(kfInt->frame()-> matrix());
 
-
-
 		double accTime = 0;
 		for(unsigned int i=0;i<animationList.size();i++)
 		{
@@ -215,7 +232,6 @@ void PointCloudViewer::draw()
 
 			accTime += animationList[i].duration;
 		}
-
 
 		accTime = 0;
 		AnimationObject* lastAnimObj = 0;
@@ -236,24 +252,17 @@ void PointCloudViewer::draw()
 		}
 	}
 
-
-
 	if(showCurrentCamera)
-		currentCamDisplay->drawCam(2*lineTesselation, 0);
+		currentCamDisplay->drawCam(alignTransform, 2*lineTesselation, 0);
 
 	if(showCurrentPointcloud)
-		currentCamDisplay->drawPC(pointTesselation, 1);
-
+		currentCamDisplay->drawPC(alignTransform, pointTesselation, 1);
 
 	graphDisplay->draw();
-
 
 	glPopMatrix();
 
 	meddleMutex.unlock();
-
-
-
 
 	if(saveAllVideo)
 	{
@@ -265,12 +274,10 @@ void PointCloudViewer::draw()
 			printf("saved (img %d @ time %lf, saveHZ %f)!\n", lastCamID, lastAnimTime, 1.0/localMsBetweenSaves);
 
 			char buf[500];
-			snprintf(buf,500,"%s%lf.png",save_folder.c_str(),  ros::Time::now().toSec());
+			snprintf(buf,500,"%s%lf.png",save_folder.c_str(), ros::Time::now().toSec());
 			saveSnapshot(QString(buf));
 			lastRealSaveTime = ros::Time::now().toSec();
 		}
-
-
 	}
 }
 
@@ -279,12 +286,19 @@ void PointCloudViewer::keyReleaseEvent(QKeyEvent *e)
 
 }
 
+void PointCloudViewer::setAlignTransform(const Sophus::Sim3f& alignTr)
+{
+	meddleMutex.lock();
+	
+	alignTransform = alignTr;
+	
+	meddleMutex.unlock();
+}
 
 void PointCloudViewer::setToVideoSize()
 {
 	this->setFixedSize(1600,900);
 }
-
 
 void PointCloudViewer::remakeAnimation()
 {

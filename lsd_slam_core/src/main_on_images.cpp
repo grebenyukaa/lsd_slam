@@ -201,7 +201,7 @@ int main( int argc, char** argv )
 		if (getdir(folders[i], files) >= 0)
 		{
 			printf("found %d image files in folder %s!\n", (int)files.size(), folders[i].c_str());
-			wrappers[i].init(i/* + 1*/, frameIDOffset, undistorter, hz);
+			wrappers[i].init(i + 1, frameIDOffset, undistorter, hz);
 			frameIDOffset += (int)files.size();
 			wrappers[i].setImages(folders[i], files);
 		}

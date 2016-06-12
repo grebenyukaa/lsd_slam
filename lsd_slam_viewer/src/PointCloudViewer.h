@@ -32,12 +32,12 @@
 #include "KeyFrameDisplay.h"
 
 #include "QGLViewer/keyFrameInterpolator.h"
-//#include "PointCloudViewerBase.h"
+#include "KeyFrameGraphDisplay.h"
 
 class QApplication;
 
-class KeyFrameGraphDisplay;
 class CameraDisplay;
+class MultiAgentPointCloudViewer;
 
 #include "settings.h"
 
@@ -50,7 +50,7 @@ public:
 	// settings
 	float scaledTH;
 	float absTH;
-	int neighb;
+	int neighb;//#include "PointCloudViewerBase.h"
 	int sparsity;
 	bool showLoopClosures;
 	bool showKeyframes;
@@ -76,7 +76,7 @@ public:
 		showLoopClosures = showConstraints;
 		showCurrentCam = showCurrentCamera;
 		sparsity = sparsifyFactor;
-
+//#include "PointCloudViewerBase.h"
 		this->isSettings = isSettings;
 
 		frame = f;
@@ -146,10 +146,10 @@ public:
     }
 };
 
-class PointCloudViewer : public QGLViewer/*PointCloudViewerBase*/
+class PointCloudViewer : public QGLViewer
 {
 public:
-	PointCloudViewer(int m_agentId);
+	PointCloudViewer(int agentId, MultiAgentPointCloudViewer* parent);
 	virtual ~PointCloudViewer();
 
 	void reset();
@@ -158,7 +158,25 @@ public:
 	void addFrameMsg(lsd_slam_viewer::keyframeMsgConstPtr msg);
 	void addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
 	
-	KeyFrameGraphDisplay* getKFGraphDisplay() { return graphDisplay; };
+	void setAlignTransform(const Sophus::Sim3f& alignTr);
+	
+	int getKFCount();
+	
+	inline int findEqualKF(const KeyFrameDisplayPtr& kf, double& dist, double& angleCos, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f)
+	{
+		return graphDisplay->findEqualKF(alignTransform, kf, dist, angleCos, ClosenessTH, KFDistWeight);
+	}
+	
+	inline KeyFrameGraphDisplay* getKFGraphDisplay() { return graphDisplay; };
+	
+	inline const Sophus::Sim3f& getAlignTransform() const { return alignTransform; }
+	inline double getMinAlignDist() const { return minAlignDist; }
+	inline double getMaxAlignCos() const { return maxAlignAngleCos; }
+	
+	inline void setMinAlignDist(const double dist) { minAlignDist = dist; }
+	inline void setMaxAlignCos(const double cos) { maxAlignAngleCos = cos; }
+
+	inline MultiAgentPointCloudViewer* getParent() const { return parentVwr; }
 
 protected :
 	virtual void draw();
@@ -169,17 +187,24 @@ protected :
 
 //	virtual void drawText(int x, int y, const QString & text, const QFont & fnt) {printf(text.toStdString().c_str());};
 
-
 private:
+	int agentId;
+	MultiAgentPointCloudViewer* parentVwr;
 
 	// displays kf-graph
 	KeyFrameGraphDisplay* graphDisplay;
 
 	// displays only current keyframe (which is not yet in the graph).
 	KeyFrameDisplayPtr currentCamDisplay;
+	
+	double minAlignDist;
+	double maxAlignAngleCos;
+	Sophus::Sim3f alignTransform;
+	double alignTrDelta;
 
 	// meddle mutex
 	boost::mutex meddleMutex;
+	boost::mutex animationMutex;
 
 	void setToVideoSize();
 	bool resetRequested;

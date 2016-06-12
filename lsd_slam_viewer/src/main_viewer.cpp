@@ -65,14 +65,14 @@ void dynConfCb(lsd_slam_viewer::LSDSLAMViewerParamsConfig &config, uint32_t leve
 
 void frameCb(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
-	printf("  frame id %d, agent id %d\n", (int)msg->id, (int)msg->agentId);	
+	//printf("  frame id %d, agent id %d\n", (int)msg->id, (int)msg->agentId);	
 	if(msg->time > lastFrameTime) return;
 	mvwr->addFrameMsg(msg);
 }
 
 void graphCb(lsd_slam_viewer::keyframeGraphMsgConstPtr msg)
 {
-	printf("  graph agent id %d\n", (int)msg->agentId);	
+	//printf("  graph agent id %d\n", (int)msg->agentId);	
 	mvwr->addGraphMsg(msg);
 }
 

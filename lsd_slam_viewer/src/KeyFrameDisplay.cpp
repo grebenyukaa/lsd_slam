@@ -32,7 +32,9 @@
 
 #include "ros/package.h"
 
-KeyFrameDisplay::KeyFrameDisplay()
+KeyFrameDisplay::KeyFrameDisplay(int agentId)
+	:
+	agentId(agentId)
 {
 	originalInput = 0;
 	id = 0;
@@ -61,7 +63,6 @@ KeyFrameDisplay::~KeyFrameDisplay()
 		delete[] originalInput;
 }
 
-
 void KeyFrameDisplay::setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
 	// copy over campose.
@@ -80,6 +81,7 @@ void KeyFrameDisplay::setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg)
 	width = msg->width;
 	height = msg->height;
 	id = msg->id;
+	agentId = msg->agentId;
 	time = msg->time;
 
 	if(originalInput != 0)
@@ -103,13 +105,14 @@ void KeyFrameDisplay::setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg)
 	glBuffersValid = false;
 }
 
-void KeyFrameDisplay::refreshPC()
+void KeyFrameDisplay::refreshPC(const Sophus::Sim3f& alignTransform)
 {
+	Sophus::Sim3f curCamToWorld = alignTransform * camToWorld;
 //	minNearSupport = 9;
 	bool paramsStillGood = my_scaledTH == scaledDepthVarTH &&
 			my_absTH == absDepthVarTH &&
-			my_scale*1.2 > camToWorld.scale() &&
-			my_scale < camToWorld.scale()*1.2 &&
+			my_scale*1.2 > curCamToWorld.scale() &&
+			my_scale < curCamToWorld.scale()*1.2 &&
 			my_minNearSupport == minNearSupport &&
 			my_sparsifyFactor == sparsifyFactor;
 
@@ -140,7 +143,7 @@ void KeyFrameDisplay::refreshPC()
 
 	my_scaledTH =scaledDepthVarTH;
 	my_absTH = absDepthVarTH;
-	my_scale = camToWorld.scale();
+	my_scale = curCamToWorld.scale();
 	my_minNearSupport = minNearSupport;
 	my_sparsifyFactor = sparsifyFactor;
 	// data is directly in ros message, in correct format.
@@ -215,23 +218,18 @@ void KeyFrameDisplay::refreshPC()
 		originalInput = 0;
 	}
 
-
-
-
 	delete[] tmpBuffer;
 }
 
-
-
-void KeyFrameDisplay::drawCam(float lineWidth, float* color)
+void KeyFrameDisplay::drawCam(const Sophus::Sim3f& alignTransform, float lineWidth, float* color)
 {
 	if(width == 0)
 		return;
 
-
 	glPushMatrix();
 
-		Sophus::Matrix4f m = camToWorld.matrix();
+		Sophus::Sim3f tr = alignTransform * camToWorld;
+		Sophus::Matrix4f m = tr.matrix();
 		glMultMatrixf((GLfloat*)m.data());
 
 		if(color == 0)
@@ -266,9 +264,8 @@ void KeyFrameDisplay::drawCam(float lineWidth, float* color)
 	glPopMatrix();
 }
 
-int KeyFrameDisplay::flushPC(std::ofstream* f)
+int KeyFrameDisplay::flushPC(const Sophus::Sim3f& alignTransform, std::ofstream* f)
 {
-
 	MyVertex* tmpBuffer = new MyVertex[width*height];
 	int num = 0;
 	for(int y=1;y<height-1;y++)
@@ -306,8 +303,8 @@ int KeyFrameDisplay::flushPC(std::ofstream* f)
 					continue;
 			}
 
-
-			Sophus::Vector3f pt = camToWorld * (Sophus::Vector3f((x*fxi + cxi), (y*fyi + cyi), 1) * depth);
+			Sophus::Sim3f tr = alignTransform * camToWorld;
+			Sophus::Vector3f pt = tr * (Sophus::Vector3f((x*fxi + cxi), (y*fyi + cyi), 1) * depth);
 			tmpBuffer[num].point[0] = pt[0];
 			tmpBuffer[num].point[1] = pt[1];
 			tmpBuffer[num].point[2] = pt[2];
@@ -339,9 +336,9 @@ int KeyFrameDisplay::flushPC(std::ofstream* f)
 	return num;
 }
 
-void KeyFrameDisplay::drawPC(float pointSize, float alpha)
+void KeyFrameDisplay::drawPC(const Sophus::Sim3f& alignTransform, float pointSize, float alpha)
 {
-	refreshPC();
+	refreshPC(alignTransform);
 
 	if(!vertexBufferIdValid)
 	{
@@ -367,7 +364,8 @@ void KeyFrameDisplay::drawPC(float pointSize, float alpha)
 
 	glPushMatrix();
 
-		Sophus::Matrix4f m = camToWorld.matrix();
+		Sophus::Sim3f tr = alignTransform * camToWorld;
+		Sophus::Matrix4f m = tr.matrix();
 		glMultMatrixf((GLfloat*)m.data());
 
 		glPointSize(pointSize);
@@ -386,9 +384,6 @@ void KeyFrameDisplay::drawPC(float pointSize, float alpha)
 		glDisableClientState(GL_VERTEX_ARRAY);
 
 	glPopMatrix();
-
-
-
 
 	if(alpha < 1)
 	{

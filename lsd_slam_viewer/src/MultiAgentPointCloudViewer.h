@@ -16,6 +16,7 @@ public:
 	
 	void addFrameMsg(lsd_slam_viewer::keyframeMsgConstPtr msg);
 	void addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
+	inline PointCloudViewer* getViewer(const int i) const { return m_viewers.at(i); }
    
 private:
 	tbb::concurrent_unordered_map<int, PointCloudViewer*> m_viewers;

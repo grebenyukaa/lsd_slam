@@ -31,6 +31,7 @@
 
 #include "KeyFrameDisplay.h"
 
+class PointCloudViewer;
 
 struct GraphConstraint
 {
@@ -56,7 +57,7 @@ struct GraphFramePose
 
 class KeyFrameGraphDisplay {
 public:
-	KeyFrameGraphDisplay();
+	KeyFrameGraphDisplay(int agentId, PointCloudViewer* vwr);
 	virtual ~KeyFrameGraphDisplay();
 
 	void draw();
@@ -66,7 +67,7 @@ public:
 	
 	void addConstraint(const KeyFrameDisplayPtr& from, const KeyFrameDisplayPtr& to, float err = 0.0);
 	void addGraph(int pivot, int other_pivot, const KeyFrameGraphDisplay* graph);
-	int findEqualKF(const KeyFrameDisplayPtr& kf, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f);
+	int findEqualKF(const Sophus::Sim3f& alignTransform, const KeyFrameDisplayPtr& kf, double& dist, double& angleCos, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f);
 
 	inline const std::map<int, KeyFrameDisplayPtr>& getKeyFramesByID() const { return keyframesByID; }
 	inline const std::list<GraphConstraintPt>& getConstraints() const { return constraints; }
@@ -74,11 +75,15 @@ public:
 	bool flushPointcloud;
 	bool printNumbers;
 	
+	inline int getAgentId() const { return agentId; }
+	
 private:
+	int agentId;
+	PointCloudViewer* vwr;
 	std::map<int, KeyFrameDisplayPtr> keyframesByID;
-	std::list<KeyFrameDisplayPtr> keyframes;
+	//std::list<KeyFrameDisplayPtr> keyframes;
 	std::list<GraphConstraintPt> constraints;
-
+	
 	boost::mutex dataMutex;
 };
 

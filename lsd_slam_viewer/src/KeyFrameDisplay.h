@@ -51,34 +51,36 @@ class KeyFrameDisplay
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-	KeyFrameDisplay();
+	KeyFrameDisplay(int agentId);
 	~KeyFrameDisplay();
 
 
 	void setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg);
-	void drawCam(float lineWidth = 1, float* color = 0);
-	void drawPC(float pointSize = 1, float alpha = 1);
-	void refreshPC();
+	void drawCam(const Sophus::Sim3f& alignTransform, float lineWidth = 1, float* color = 0);
+	void drawPC(const Sophus::Sim3f& alignTransform, float pointSize = 1, float alpha = 1);
+	void refreshPC(const Sophus::Sim3f& alignTransform);
 
-	int flushPC(std::ofstream* f);
+	int flushPC(const Sophus::Sim3f& alignTransform, std::ofstream* f);
 
 	inline float getFx() const { return fx; }
 	inline float getFy() const { return fy; }
 	inline int getWidth() const { return width; }
 	inline int getHeight() const { return height; }
 	inline const InputPointDense* getPointDenseStruct() const { return originalInput; }
+	inline int getAgentId() const { return agentId; }
 
 	int id;
 	double time;
 
 	int totalPoints, displayedPoints;
 
-
 	// camera pose
 	// may be updated by kf-graph.
 	Sophus::Sim3f camToWorld;
 
 private:
+	int agentId;
+
 	// camera parameter
 	// fixed.
 	float fx,fy,cx,cy;

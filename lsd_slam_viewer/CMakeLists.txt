@@ -8,7 +8,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-set(ROS_BUILD_TYPE Release)
+set(ROS_BUILD_TYPE Debug)
 
 rosbuild_init()
 
@@ -43,7 +43,7 @@ rosbuild_genmsg()
 # gcc 6 related flags -Wno-ignored-attributes -Wno-misleading-indentation have to be used because of annoying warnings from Eigen
 rosbuild_check_for_sse()
 set(CMAKE_CXX_FLAGS
-   "${SSE_FLAGS} ${TBB_DEFINITIONS} -Wno-ignored-attributes -Wno-misleading-indentation"
+   "${SSE_FLAGS} ${TBB_DEFINITIONS} -Wno-ignored-attributes -Wno-misleading-indentation -Wno-deprecated-declarations"
 )
 
 # SSE Sources files

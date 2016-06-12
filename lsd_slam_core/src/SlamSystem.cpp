@@ -1243,7 +1243,6 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 		Eigen::aligned_allocator< Frame* > > candidates = trackableKeyFrameSearch->findCandidates(newKeyFrame, fabMapResult, useFABMAP, closeCandidatesTH);
 	std::map< Frame*, Sim3, std::less<Frame*>, Eigen::aligned_allocator<std::pair<Frame*, Sim3> > > candidateToFrame_initialEstimateMap;
 
-
 	// erase the ones that are already neighbours.
 	for(std::unordered_set<Frame*>::iterator c = candidates.begin(); c != candidates.end();)
 	{
@@ -1268,10 +1267,6 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 	if(newKeyFrame->hasTrackingParent())
 		keyFrameGraph->calculateGraphDistancesToFrame(newKeyFrame->getTrackingParent(), &distancesToNewKeyFrame);
 	poseConsistencyMutex.unlock_shared();
-
-
-
-
 
 	// =============== distinguish between close and "far" candidates in Graph =================
 	// Do a first check on trackability of close candidates.
@@ -1312,8 +1307,6 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 		closeCandidates.insert(candidate);
 	}
 
-
-
 	int farFailed = 0;
 	int farInconsistent = 0;
 	for (Frame* candidate : candidates)
@@ -1338,9 +1331,6 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 
 		farCandidates.push_back(candidate);
 	}
-
-
-
 
 	int closeAll = closeCandidates.size();
 	int farAll = farCandidates.size();
@@ -1453,13 +1443,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 	}
 
 
-
-
-
-
-
 	// =============== TRACK! ===============
-
 	// make tracking reference for newKeyFrame.
 	newKFTrackingReference->importFrame(newKeyFrame);
 
