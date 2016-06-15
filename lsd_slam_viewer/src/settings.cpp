@@ -31,12 +31,12 @@ bool showKFCameras = true;
 bool showKFPointclouds = true;
 bool showConstraints = true;
 bool showCurrentCamera = true;
-bool showCurrentPointcloud = true;
+bool showCurrentPointcloud = false;
 
 float scaledDepthVarTH = 1;
 float absDepthVarTH = 1;
 int minNearSupport = 5;
-int cutFirstNKf = 5;
+int cutFirstNKf = 10;
 int sparsifyFactor = 1;
 
 bool saveAllVideo = false;

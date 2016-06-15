@@ -43,7 +43,7 @@
 #include <iostream>
 #include <fstream>
 
-PointCloudViewer::PointCloudViewer(int agentId, MultiAgentPointCloudViewer* parent)
+PointCloudViewer::PointCloudViewer(int agentId, MultiAgentPointCloudViewer* parent, float* cl)
 	:
 	agentId(agentId),
 	parentVwr(parent),
@@ -85,13 +85,24 @@ PointCloudViewer::PointCloudViewer(int agentId, MultiAgentPointCloudViewer* pare
 	setShortcut(INCREASE_FLYSPEED, Qt::Key_Plus);
 	setShortcut(DECREASE_FLYSPEED, Qt::Key_Minus);
 
+	if (cl != nullptr)
+	{
+		memcpy(color, cl, 3 * sizeof(float));
+	}
+	else
+	{
+		color[0] = 0.0;
+		color[1] = 0.0;
+		color[2] = 1.0;
+	}
+
 	reset();
 }
 
 
 PointCloudViewer::~PointCloudViewer()
 {
-	//delete currentCamDisplay;
+	delete currentCamDisplay;
 	delete graphDisplay;
 }
 
@@ -103,9 +114,10 @@ void PointCloudViewer::reset()
 	if(graphDisplay != 0)
 		delete graphDisplay;
 
-	currentCamDisplay = std::make_shared<KeyFrameDisplay>(agentId);
+	currentCamDisplay = new KeyFrameDisplay(agentId);
 	graphDisplay = new KeyFrameGraphDisplay(agentId, this);
 
+	alignTransform = Sophus::Sim3f();
 	minAlignDist = std::numeric_limits<double>::max();
 	maxAlignAngleCos = 0;
 	alignTrDelta = std::numeric_limits<double>::max();
@@ -251,12 +263,26 @@ void PointCloudViewer::draw()
 			showConstraints = lastAnimObj->showLoopClosures;
 		}
 	}
+	 
+	if (showCurrentCamera)
+	{
+		if (agentId == 0)
+		{
+			for (int i = 1; i < getParent()->getVwrCount(); ++i)
+			{
+				PointCloudViewer* ref_vwr = getParent()->getViewer(i);
+				ref_vwr->getCurrentCam()->drawCam(ref_vwr->getAlignTransform(), 2*lineTesselation, ref_vwr->getColor());
+			}
+		}
+		else
+		{
+			currentCamDisplay->drawCam(Sophus::Sim3f(), 2*lineTesselation, 0);
+		}
+	}
 
-	if(showCurrentCamera)
-		currentCamDisplay->drawCam(alignTransform, 2*lineTesselation, 0);
-
-	if(showCurrentPointcloud)
-		currentCamDisplay->drawPC(alignTransform, pointTesselation, 1);
+	if (showCurrentPointcloud)
+		if (agentId != 0)
+			currentCamDisplay->drawPC(Sophus::Sim3f(), pointTesselation, 1);
 
 	graphDisplay->draw();
 
@@ -291,6 +317,7 @@ void PointCloudViewer::setAlignTransform(const Sophus::Sim3f& alignTr)
 	meddleMutex.lock();
 	
 	alignTransform = alignTr;
+	//alignTransform.setScale(1);
 	
 	meddleMutex.unlock();
 }

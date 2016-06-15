@@ -149,7 +149,7 @@ public:
 class PointCloudViewer : public QGLViewer
 {
 public:
-	PointCloudViewer(int agentId, MultiAgentPointCloudViewer* parent);
+	PointCloudViewer(int agentId, MultiAgentPointCloudViewer* parent, float* color = nullptr);
 	virtual ~PointCloudViewer();
 
 	void reset();
@@ -162,7 +162,7 @@ public:
 	
 	int getKFCount();
 	
-	inline int findEqualKF(const KeyFrameDisplayPtr& kf, double& dist, double& angleCos, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f)
+	inline int findEqualKF(const KeyFrameDisplay& kf, double& dist, double& angleCos, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f)
 	{
 		return graphDisplay->findEqualKF(alignTransform, kf, dist, angleCos, ClosenessTH, KFDistWeight);
 	}
@@ -177,6 +177,8 @@ public:
 	inline void setMaxAlignCos(const double cos) { maxAlignAngleCos = cos; }
 
 	inline MultiAgentPointCloudViewer* getParent() const { return parentVwr; }
+	inline const float* getColor() const { return color; }
+	inline KeyFrameDisplay* getCurrentCam() const { return currentCamDisplay; }
 
 protected :
 	virtual void draw();
@@ -190,12 +192,13 @@ protected :
 private:
 	int agentId;
 	MultiAgentPointCloudViewer* parentVwr;
+	float color[3];
 
 	// displays kf-graph
 	KeyFrameGraphDisplay* graphDisplay;
 
 	// displays only current keyframe (which is not yet in the graph).
-	KeyFrameDisplayPtr currentCamDisplay;
+	KeyFrameDisplay* currentCamDisplay;
 	
 	double minAlignDist;
 	double maxAlignAngleCos;

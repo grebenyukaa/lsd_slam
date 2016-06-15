@@ -32,15 +32,57 @@
 
 #include "ros/package.h"
 
-KeyFrameDisplay::KeyFrameDisplay(int agentId)
-	:
-	agentId(agentId)
+KeyFrameDisplay::KeyFrameDisplay()
 {
-	originalInput = 0;
+	init(-1);
+}
+
+KeyFrameDisplay::KeyFrameDisplay(int agentId)
+{
+	init(agentId);
+}
+
+KeyFrameDisplay::KeyFrameDisplay(const KeyFrameDisplay& other)
+	:
+	id(other.id),
+	time(other.time),
+	totalPoints(other.totalPoints),
+	displayedPoints(other.displayedPoints),
+	agentId(other.agentId),
+	fx(other.fx),
+	fy(other.fy),
+	cx(other.cx),
+	cy(other.cy),
+	fxi(other.fxi),
+	fyi(other.fyi),
+	cxi(other.cxi),
+	cyi(other.cyi),
+	width(other.width),
+	height(other.height),
+	my_scaledTH(other.my_scaledTH),
+	my_absTH(other.my_absTH),
+	my_scale(other.my_scale),
+	my_minNearSupport(other.my_minNearSupport),
+	my_sparsifyFactor(other.my_sparsifyFactor),
+	meanIDepth(other.meanIDepth),
+	vertexBufferId(other.vertexBufferId),
+	vertexBufferNumPoints(other.vertexBufferNumPoints),
+	vertexBufferIdValid(other.vertexBufferIdValid),
+	glBuffersValid(other.glBuffersValid)
+{
+	memcpy(camToWorld.data(), other.camToWorld.data(), 7*sizeof(float));
+	originalInput = other.originalInput;
+}
+
+void KeyFrameDisplay::init(int aid)
+{
+	agentId = aid;
+	meanIDepth = 0;
+	
+	originalInput.resize(0);
 	id = 0;
 	vertexBufferIdValid = false;
 	glBuffersValid = false;
-
 
 	camToWorld = Sophus::Sim3f();
 	width=height=0;
@@ -50,7 +92,6 @@ KeyFrameDisplay::KeyFrameDisplay(int agentId)
 	totalPoints = displayedPoints = 0;
 }
 
-
 KeyFrameDisplay::~KeyFrameDisplay()
 {
 	if(vertexBufferIdValid)
@@ -58,9 +99,6 @@ KeyFrameDisplay::~KeyFrameDisplay()
 		glDeleteBuffers(1, &vertexBufferId);
 		vertexBufferIdValid = false;
 	}
-
-	if(originalInput != 0)
-		delete[] originalInput;
 }
 
 void KeyFrameDisplay::setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg)
@@ -84,9 +122,7 @@ void KeyFrameDisplay::setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg)
 	agentId = msg->agentId;
 	time = msg->time;
 
-	if(originalInput != 0)
-		delete[] originalInput;
-	originalInput=0;
+	originalInput.resize(0);
 
 	if(msg->pointcloud.size() != width*height*sizeof(InputPointDense))
 	{
@@ -98,9 +134,15 @@ void KeyFrameDisplay::setFrom(lsd_slam_viewer::keyframeMsgConstPtr msg)
 	}
 	else
 	{
-		originalInput = new InputPointDense[width*height];
-		memcpy(originalInput, msg->pointcloud.data(), width*height*sizeof(InputPointDense));
+		originalInput.resize(width*height);
+		memcpy(originalInput.data(), msg->pointcloud.data(), width*height*sizeof(InputPointDense));
+		//std::copy_n((uint8_t*)msg->pointcloud.data(), sizeof(InputPointDense)*width*height, (uint8_t*)&originalInput[0]);
 	}
+
+	meanIDepth = 0;
+	for (const auto sidepth : originalInput)
+		meanIDepth += sidepth.idepth;
+	meanIDepth /= width * height;
 
 	glBuffersValid = false;
 }
@@ -116,13 +158,10 @@ void KeyFrameDisplay::refreshPC(const Sophus::Sim3f& alignTransform)
 			my_minNearSupport == minNearSupport &&
 			my_sparsifyFactor == sparsifyFactor;
 
-
-
 	if(glBuffersValid && (paramsStillGood || numRefreshedAlready > 10)) return;
 	numRefreshedAlready++;
 
 	glBuffersValid = true;
-
 
 	// delete old vertex buffer
 	if(vertexBufferIdValid)
@@ -131,12 +170,11 @@ void KeyFrameDisplay::refreshPC(const Sophus::Sim3f& alignTransform)
 		vertexBufferIdValid = false;
 	}
 
-
-
 	// if there are no vertices, done!
-	if(originalInput == 0)
+	if(originalInput.size() == 0)
+	{
 		return;
-
+	}
 
 	// make data
 	MyVertex* tmpBuffer = new MyVertex[width*height];
@@ -210,18 +248,16 @@ void KeyFrameDisplay::refreshPC(const Sophus::Sim3f& alignTransform)
 	glBufferData(GL_ARRAY_BUFFER, sizeof(MyVertex) * vertexBufferNumPoints, tmpBuffer, GL_STATIC_DRAW);
 	vertexBufferIdValid = true;
 
-
-
-	if(!keepInMemory)
+	if (!keepInMemory)
 	{
-		delete[] originalInput;
-		originalInput = 0;
+		auto tmp = std::vector<InputPointDense>();
+		originalInput.swap(tmp);
 	}
 
 	delete[] tmpBuffer;
 }
 
-void KeyFrameDisplay::drawCam(const Sophus::Sim3f& alignTransform, float lineWidth, float* color)
+void KeyFrameDisplay::drawCam(const Sophus::Sim3f& alignTransform, float lineWidth, const float* color)
 {
 	if(width == 0)
 		return;
@@ -318,9 +354,6 @@ int KeyFrameDisplay::flushPC(const Sophus::Sim3f& alignTransform, std::ofstream*
 
 			num++;
 		}
-
-
-
 
 	for(int i=0;i<num;i++)
 	{

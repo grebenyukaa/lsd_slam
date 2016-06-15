@@ -47,18 +47,20 @@ void KeyFrameGraphDisplay::draw()
 	numRefreshedAlready = 0;
 
 	// draw keyframes
-	float color[3] = {0,0,1};
 	int idx = 0;
 	for (auto frame_kv : keyframesByID)
 	{
-		const auto& frame = frame_kv.second;
-		const Sophus::Sim3f& alignTransform = vwr->getParent()->getViewer(frame->getAgentId())->getAlignTransform();
+		auto& frame = frame_kv.second;
+		int frameAgentId = frame.getAgentId();
 		
+		PointCloudViewer* frame_vwr = vwr->getParent()->getViewer(frameAgentId);
+		const Sophus::Sim3f& alignTransform = frameAgentId != agentId ? frame_vwr->getAlignTransform() : Sophus::Sim3f();
+			
 		if (showKFCameras)
-			frame->drawCam(alignTransform, lineTesselation, color);
+			frame.drawCam(alignTransform, lineTesselation, frame_vwr->getColor());
 
 		if ((showKFPointclouds && idx > cutFirstNKf) || idx == (int)keyframesByID.size() - 1)
-			frame->drawPC(alignTransform, pointTesselation, 1);
+			frame.drawPC(alignTransform, pointTesselation, 1);
 		
 		++idx;
 	}
@@ -71,11 +73,12 @@ void KeyFrameGraphDisplay::draw()
 		int idx = 0;
 		for (auto frame_kv : keyframesByID)
 		{
-			const auto& frame = frame_kv.second;
-			const Sophus::Sim3f& alignTransform = vwr->getParent()->getViewer(frame->getAgentId())->getAlignTransform();
+			auto& frame = frame_kv.second;
+			int frameAgentId = frame.getAgentId();
+			const Sophus::Sim3f& alignTransform = frameAgentId != agentId ? vwr->getParent()->getViewer(frameAgentId)->getAlignTransform() : Sophus::Sim3f();
 			
 			if (idx > cutFirstNKf)
-				numpts += frame->flushPC(alignTransform, &f);
+				numpts += frame.flushPC(alignTransform, &f);
 			++idx;
 		}
 		f.flush();
@@ -108,8 +111,8 @@ void KeyFrameGraphDisplay::draw()
 		int visPoints = 0;
 		for (auto frame_kv : keyframesByID)
 		{
-			totalPoint += frame_kv.second->totalPoints;
-			visPoints += frame_kv.second->displayedPoints;
+			totalPoint += frame_kv.second.totalPoints;
+			visPoints += frame_kv.second.displayedPoints;
 		}
 
 		printf("Have %d points, %d keyframes, %d constraints. Displaying %d points.\n",
@@ -124,16 +127,26 @@ void KeyFrameGraphDisplay::draw()
 		glBegin(GL_LINES);
 		for (auto constraint : constraints)
 		{
-			if(constraint.from == 0 || constraint.to == 0)
+			if(constraint.from == -1 || constraint.to == -1)
 				continue;
+				
+			//printf("[anim] show constr from (%d, %d) to (%d, %d)\n", constraint.fromAgentId, constraint.from, constraint.toAgentId, constraint.to);
+			
+			const Sophus::Sim3f& alignTransformFrom = constraint.fromAgentId != agentId ? 
+				vwr->getParent()->getViewer(constraint.fromAgentId)->getAlignTransform() : Sophus::Sim3f();
+			const Sophus::Sim3f& alignTransformTo = constraint.toAgentId != agentId ? 
+				vwr->getParent()->getViewer(constraint.toAgentId)->getAlignTransform() : Sophus::Sim3f();
+
+			const KeyFrameDisplay& from = vwr->getParent()->getViewer(constraint.fromAgentId)->getKFGraphDisplay()->getKeyFramesByID().at(constraint.from);
+			const KeyFrameDisplay& to = vwr->getParent()->getViewer(constraint.toAgentId)->getKFGraphDisplay()->getKeyFramesByID().at(constraint.to);
 
 			double colorScalar = std::max(0.0, std::min(1.0, constraint.err / 0.05));
 			glColor3f(colorScalar, 1 - colorScalar, 0);
 
-			Sophus::Vector3f t = constraint.from->camToWorld.translation();
+			Sophus::Vector3f t = (alignTransformFrom * from.camToWorld).translation();
 			glVertex3f((GLfloat)t[0], (GLfloat)t[1], (GLfloat)t[2]);
 
-			t = constraint.to->camToWorld.translation();
+			t = (alignTransformTo * to.camToWorld).translation();
 			glVertex3f((GLfloat)t[0], (GLfloat)t[1], (GLfloat)t[2]);
 		}
 		glEnd();
@@ -142,11 +155,11 @@ void KeyFrameGraphDisplay::draw()
 	dataMutex.unlock();
 }
 
-int KeyFrameGraphDisplay::findEqualKF(const Sophus::Sim3f& alignTransform, const KeyFrameDisplayPtr& kf, double& dist, double& angleCos, float ClosenessTH, float KFDistWeight)
+int KeyFrameGraphDisplay::findEqualKF(const Sophus::Sim3f& alignTransform, const KeyFrameDisplay& kf, double& dist, double& angleCos, float ClosenessTH, float KFDistWeight)
 {
 	float fowX, fowY;
-	fowX = 2 * atanf((float)((kf->getWidth() / kf->getFx() / 2.0f)));
-	fowY = 2 * atanf((float)((kf->getHeight() / kf->getFy() / 2.0f)));
+	fowX = 2 * atanf((float)((kf.getWidth() / kf.getFx() / 2.0f)));
+	fowY = 2 * atanf((float)((kf.getHeight() / kf.getFy() / 2.0f)));
 	
 	//from solver
 	float distanceTH = ClosenessTH * 15 / (KFDistWeight*KFDistWeight);
@@ -157,11 +170,11 @@ int KeyFrameGraphDisplay::findEqualKF(const Sophus::Sim3f& alignTransform, const
 	// e.g. if the FoV is 130°, then it is angleTH*130°.
 	float cosAngleTH = cosf(angleTH*0.5f*(fowX + fowY));
 
-	Sophus::Sim3f ctw = alignTransform * kf->camToWorld;
+	Sophus::Sim3f ctw = alignTransform * kf.camToWorld;
 	Eigen::Vector3f pos = ctw.translation();
 	Eigen::Vector3f viewingDir = ctw.rotationMatrix().rightCols<1>();
 
-	float iDepth = kf->getPointDenseStruct()->idepth;
+	float iDepth = kf.getMeanIDepth();
 
 	float distFacReciprocal = 1;
 	if(checkBothScales)
@@ -176,20 +189,20 @@ int KeyFrameGraphDisplay::findEqualKF(const Sophus::Sim3f& alignTransform, const
 	dataMutex.lock();
 	for (const auto& kf_kv : keyframesByID)
 	{
-		if (kf_kv.second->getAgentId() == kf->getAgentId()) continue;
+		if (kf_kv.second.getAgentId() == kf.getAgentId()) continue;
 		
-		const KeyFrameDisplayPtr& curKF = kf_kv.second;
-		Eigen::Vector3f otherPos = curKF->camToWorld.translation();
-		float curIDepth = curKF->getPointDenseStruct()->idepth;
+		const KeyFrameDisplay& curKF = kf_kv.second;
+		Eigen::Vector3f otherPos = curKF.camToWorld.translation();
+		float curIDepth = curKF.getMeanIDepth();
 
 		// get distance between the frames, scaled to fit the potential reference frame.
-		float distFac = curIDepth / curKF->camToWorld.scale();
+		float distFac = curIDepth / curKF.camToWorld.scale();
 		if (checkBothScales && distFacReciprocal < distFac) distFac = distFacReciprocal;
 		Eigen::Vector3f dist = (pos - otherPos) * distFac;
 		float dNorm2 = dist.dot(dist);
 		if (dNorm2 > distanceTH) continue;
 
-		Eigen::Vector3f otherViewingDir = curKF->camToWorld.rotationMatrix().rightCols<1>();
+		Eigen::Vector3f otherViewingDir = curKF.camToWorld.rotationMatrix().rightCols<1>();
 		float dirDotProd = otherViewingDir.dot(viewingDir);
 		if (dirDotProd < cosAngleTH) continue;
 		
@@ -227,16 +240,15 @@ int KeyFrameGraphDisplay::findEqualKF(const Sophus::Sim3f& alignTransform, const
 void KeyFrameGraphDisplay::addMsg(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
 	dataMutex.lock();
-	if (keyframesByID.count(msg->id) == 0)
+	if (keyframesByID.find(msg->id) == keyframesByID.cend())
 	{
-		auto disp = std::make_shared<KeyFrameDisplay>(agentId);
-		keyframesByID[msg->id] = disp;
+		keyframesByID[msg->id] = KeyFrameDisplay(agentId);
 		//keyframes.push_back(disp);
 
 	//	printf("added new KF, now there are %d!\n", (int)keyframes.size());
 	}
 
-	keyframesByID[msg->id]->setFrom(msg);
+	keyframesByID[msg->id].setFrom(msg);
 	dataMutex.unlock();
 }
 
@@ -244,18 +256,20 @@ void KeyFrameGraphDisplay::addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr
 {
 	dataMutex.lock();
 
-	constraints.resize(msg->numConstraints);
 	assert(msg->constraintsData.size() == sizeof(GraphConstraint)*msg->numConstraints);
 	GraphConstraint* constraintsIn = (GraphConstraint*)msg->constraintsData.data();
 	for(int i = 0; i < (int)msg->numConstraints; i++)
 	{
 		GraphConstraintPt new_constraint;
 		new_constraint.err = constraintsIn[i].err;
-		new_constraint.from = 0;
-		new_constraint.to = 0;
+		new_constraint.from = -1;
+		new_constraint.to = -1;
 
 		if(keyframesByID.count(constraintsIn[i].from) != 0)
-			new_constraint.from = keyframesByID[constraintsIn[i].from].get();
+		{
+			new_constraint.from = constraintsIn[i].from;
+			new_constraint.fromAgentId = msg->agentId;
+		}
 //		else
 //			printf("ERROR: graph update contains constraints for %d -> %d, but I dont have a frame %d!\n",
 //					constraintsIn[i].from,
@@ -264,12 +278,16 @@ void KeyFrameGraphDisplay::addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr
 
 
 		if(keyframesByID.count(constraintsIn[i].to) != 0)
-			new_constraint.to = keyframesByID[constraintsIn[i].to].get();
+		{
+			new_constraint.to = constraintsIn[i].to;
+			new_constraint.toAgentId = msg->agentId;
+		}
 //		else
 //			printf("ERROR: graph update contains constraints for %d -> %d, but I dont have a frame %d!\n",
 //					constraintsIn[i].from,
 //					constraintsIn[i].to,
 //					constraintsIn[i].to);
+		//printf("[vwr %d] add constraint from (%d, %d) to (%d, %d)\n", agentId, new_constraint.fromAgentId, new_constraint.from, new_constraint.toAgentId, new_constraint.to);
 		constraints.push_back(new_constraint);
 	}
 
@@ -277,14 +295,14 @@ void KeyFrameGraphDisplay::addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr
 	int numGraphPoses = msg->numFrames;
 	assert(msg->frameData.size() == sizeof(GraphFramePose)*msg->numFrames);
 
-	for(int i=0;i<numGraphPoses;i++)
+	for(int i = 0; i < numGraphPoses; i++)
 	{
 		if(keyframesByID.count(graphPoses[i].id) == 0)
 		{
 		//	printf("ERROR: graph update contains pose for frame %d, but I dont have a frame %d!\n", graphPoses[i].id, graphPoses[i].id);
 		}
 		else
-			memcpy(keyframesByID[graphPoses[i].id]->camToWorld.data(), graphPoses[i].camToWorld, 7*sizeof(float));
+			memcpy(keyframesByID[graphPoses[i].id].camToWorld.data(), graphPoses[i].camToWorld, 7*sizeof(float));
 	}
 
 	dataMutex.unlock();
@@ -292,14 +310,16 @@ void KeyFrameGraphDisplay::addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr
 //	printf("graph update: %d constraints, %d poses\n", msg->numConstraints, msg->numFrames);
 }
 
-void KeyFrameGraphDisplay::addConstraint(const KeyFrameDisplayPtr& from, const KeyFrameDisplayPtr& to, float err)
+void KeyFrameGraphDisplay::addConstraint(int fromAgentId, int fromId, int toAgentId, int toId, float err)
 {
 	//dataMutex.lock();
 	
 	GraphConstraintPt new_constraint;
 	new_constraint.err = err;
-	new_constraint.from = from.get();
-	new_constraint.to = to.get();
+	new_constraint.from = fromId;
+	new_constraint.fromAgentId = fromAgentId;
+	new_constraint.to = toId;
+	new_constraint.toAgentId = toAgentId;
 	constraints.push_back(new_constraint);
 	
 	//dataMutex.unlock();
@@ -308,18 +328,16 @@ void KeyFrameGraphDisplay::addConstraint(const KeyFrameDisplayPtr& from, const K
 void KeyFrameGraphDisplay::addGraph(int pivot, int other_pivot, const KeyFrameGraphDisplay* graph)
 {
 	dataMutex.lock();
+	
 	for (auto frame_kv : graph->getKeyFramesByID())
 	{
-		keyframesByID[frame_kv.first] = frame_kv.second;
+		keyframesByID[frame_kv.first] = KeyFrameDisplay(frame_kv.second);
 	}
-	const auto& other_constraints = graph->getConstraints();
-	std::copy(other_constraints.cbegin(), other_constraints.cend(), constraints.end());
 	
-	const auto& otherPivotFrame = graph->getKeyFramesByID().at(other_pivot);
-	const auto& pivotFrame = keyframesByID.at(pivot);
-
-	addConstraint(pivotFrame, otherPivotFrame);
-	addConstraint(otherPivotFrame, pivotFrame);
+	std::copy(graph->getConstraints().cbegin(), graph->getConstraints().cend(), constraints.begin());
+	
+	addConstraint(agentId, pivot, graph->getAgentId(), other_pivot);
+	addConstraint(graph->getAgentId(), other_pivot, agentId, pivot);
 	
 	dataMutex.unlock();
 }

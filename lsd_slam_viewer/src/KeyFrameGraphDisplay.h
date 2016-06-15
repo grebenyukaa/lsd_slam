@@ -40,12 +40,21 @@ struct GraphConstraint
 	float err;
 };
 
-
 struct GraphConstraintPt
 {
-	KeyFrameDisplay* from;
-	KeyFrameDisplay* to;
+	int fromAgentId;
+	int from;
+	int toAgentId;
+	int to;
 	float err;
+	
+	GraphConstraintPt()
+		:
+		fromAgentId(-1),
+		from(-1),
+		toAgentId(-1),
+		to(-1)
+	{}
 };
 
 struct GraphFramePose
@@ -65,12 +74,19 @@ public:
 	void addMsg(lsd_slam_viewer::keyframeMsgConstPtr msg);
 	void addGraphMsg(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
 	
-	void addConstraint(const KeyFrameDisplayPtr& from, const KeyFrameDisplayPtr& to, float err = 0.0);
+	void addConstraint(int fromAgentId, int fromId, int toAgentId, int toId, float err = 0.0);
 	void addGraph(int pivot, int other_pivot, const KeyFrameGraphDisplay* graph);
-	int findEqualKF(const Sophus::Sim3f& alignTransform, const KeyFrameDisplayPtr& kf, double& dist, double& angleCos, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f);
+	int findEqualKF(const Sophus::Sim3f& alignTransform, const KeyFrameDisplay& kf, double& dist, double& angleCos, float ClosenessTH = 1.0f, float KFDistWeight = 4.0f);
 
-	inline const std::map<int, KeyFrameDisplayPtr>& getKeyFramesByID() const { return keyframesByID; }
+	inline const std::map<int, KeyFrameDisplay>& getKeyFramesByID() const { return keyframesByID; }
 	inline const std::list<GraphConstraintPt>& getConstraints() const { return constraints; }
+	inline void setCamToWorld(int frameId, const Sophus::Sim3f& ctw)
+	{ 
+		dataMutex.lock();
+		memcpy(keyframesByID[frameId].camToWorld.data(), ctw.data(), 7*sizeof(float));
+		dataMutex.unlock();
+	};
+	inline const Sophus::Sim3f& getCamToWorld(int frameId) { return keyframesByID[frameId].camToWorld; };
 
 	bool flushPointcloud;
 	bool printNumbers;
@@ -80,7 +96,7 @@ public:
 private:
 	int agentId;
 	PointCloudViewer* vwr;
-	std::map<int, KeyFrameDisplayPtr> keyframesByID;
+	std::map<int, KeyFrameDisplay> keyframesByID;
 	//std::list<KeyFrameDisplayPtr> keyframes;
 	std::list<GraphConstraintPt> constraints;
 	
