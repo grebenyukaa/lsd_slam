@@ -76,7 +76,7 @@ void MultiAgentPointCloudViewer::countLogNormResidual(int agentId, int frameId, 
 	printf("  max log norm: %f\n", max);
 }
 
-bool findEqualAndAdjustAlignTransform(int refId, int refAgentId)
+bool MultiAgentPointCloudViewer::findEqualAndAdjustAlignTransform(int refId, int refAgentId)
 {
 	PointCloudViewer* ref_vwr = m_viewers[refAgentId];
 	const KeyFrameDisplay& ref_kf = ref_vwr->getKFGraphDisplay()->getKeyFramesByID().at(refId);
@@ -89,7 +89,7 @@ bool findEqualAndAdjustAlignTransform(int refId, int refAgentId)
 		
 		if (equal_kf_id > 0)
 		{
-			printf("agent #%d: found equal KF #%d, ref KF #%d, ref agentID #%d\n", msg->agentId, equal_kf_id, ref_kf.id, ref_kf.getAgentId());
+			printf("agent #%d: found equal KF #%d, ref KF #%d, ref agentID #%d\n", refAgentId, equal_kf_id, ref_kf.id, ref_kf.getAgentId());
 			const KeyFrameDisplay& pivot_kf = m_viewers[0]->getKFGraphDisplay()->getKeyFramesByID().at(equal_kf_id);
 			
 			bool fDist = false;
@@ -117,7 +117,8 @@ bool findEqualAndAdjustAlignTransform(int refId, int refAgentId)
 					//alignTransform.setScale(1);
 					ref_vwr->setAlignTransform(alignTransform * ref_vwr->getAlignTransform());
 					
-					m_equal_kfs[0][msg->agentId][equal_kf_id].push_back(ref_kf.id);
+					m_equal_kfs[0][refAgentId][equal_kf_id].push_back(ref_kf.id);
+					return true;
 				}
 				
 				//Check align
@@ -136,12 +137,10 @@ bool findEqualAndAdjustAlignTransform(int refId, int refAgentId)
 					ref_vwr->setAlignTransform(residual * ref_vwr->getAlignTransform());
 					//m_viewers[0]->getKFGraphDisplay()->setCamToWorld(ref_kf.id, ref_vwr->getAlignTransform().inverse() * pivot_kf.camToWorld);
 				}
-				
-				m_viewers[0]->getKFGraphDisplay()->addGraph(equal_kf_id, ref_kf.id, m_viewers[msg->agentId]->getKFGraphDisplay());
-				m_viewers[0]->resetAnimation(0, cutFirstNKf);
 			}
 		}
 	}
+	return false;
 }
 
 void MultiAgentPointCloudViewer::addFrameMsg(lsd_slam_viewer::keyframeMsgConstPtr msg)
@@ -163,9 +162,9 @@ void MultiAgentPointCloudViewer::addFrameMsg(lsd_slam_viewer::keyframeMsgConstPt
 		
 		if (ref_vwr->getKFCount() <= cutFirstNKf) return;
 		
-		for (auto ref_kf_kv : ref_vwr->getKFGraphDisplay()->getKeyFramesByID())
+		//for (auto ref_kf_kv : ref_vwr->getKFGraphDisplay()->getKeyFramesByID())
 		{
-			const KeyFrameDisplay& ref_kf = ref_kf_kv.second;/*ref_vwr->getKFGraphDisplay()->getKeyFramesByID().at(msg->id);*/
+			const KeyFrameDisplay& ref_kf = /*ref_kf_kv.second;*/ref_vwr->getKFGraphDisplay()->getKeyFramesByID().at(msg->id);
 			
 			for (int i = 1; i < (int)m_viewers.size(); ++i)
 			{
