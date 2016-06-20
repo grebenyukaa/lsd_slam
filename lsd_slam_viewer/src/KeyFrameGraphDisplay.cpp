@@ -34,7 +34,7 @@ KeyFrameGraphDisplay::KeyFrameGraphDisplay(int agentId, PointCloudViewer* vwr)
 	agentId(agentId),
 	vwr(vwr)
 {
-	flushPointcloud = false;
+	flushPointcloud = true;
 	printNumbers = false;
 }
 
@@ -65,44 +65,74 @@ void KeyFrameGraphDisplay::draw()
 		++idx;
 	}
 
-	if(flushPointcloud)
+	// if(flushPointcloud)
+	// {
+	// 	printf("Flushing Pointcloud to %s!\n", (ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
+	// 	std::ofstream f((ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
+	// 	int numpts = 0;
+	// 	int idx = 0;
+	// 	for (auto frame_kv : keyframesByID)
+	// 	{
+	// 		auto& frame = frame_kv.second;
+	// 		int frameAgentId = frame.getAgentId();
+	// 		const Sophus::Sim3f& alignTransform = frameAgentId != agentId ? vwr->getParent()->getViewer(frameAgentId)->getAlignTransform() : Sophus::Sim3f();
+			
+	// 		if (idx > cutFirstNKf)
+	// 			numpts += frame.flushPC(alignTransform, &f);
+	// 		++idx;
+	// 	}
+	// 	f.flush();
+	// 	f.close();
+
+	// 	std::ofstream f2((ros::package::getPath("lsd_slam_viewer")+"/pc.ply").c_str());
+	// 	f2 << std::string("ply\n");
+	// 	f2 << std::string("format binary_little_endian 1.0\n");
+	// 	f2 << std::string("element vertex ") << numpts << std::string("\n");
+	// 	f2 << std::string("property float x\n");
+	// 	f2 << std::string("property float y\n");
+	// 	f2 << std::string("property float z\n");
+	// 	f2 << std::string("property float intensity\n");
+	// 	f2 << std::string("end_header\n");
+
+	// 	std::ifstream f3((ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
+	// 	while(!f3.eof()) f2.put(f3.get());
+
+	// 	f2.close();
+	// 	f3.close();
+
+	// 	system(("rm "+ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
+	// 	flushPointcloud = false;
+	// 	printf("Done Flushing Pointcloud with %d points!\n", numpts);
+	// }
+
+	if (flushPointcloud)
 	{
-		printf("Flushing Pointcloud to %s!\n", (ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
-		std::ofstream f((ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
-		int numpts = 0;
-		int idx = 0;
+		std::ostringstream oss;
+		oss << "pc" << agentId << ".txt";
+		std::ofstream ofs((ros::package::getPath("lsd_slam_viewer")+oss.str().c_str()).c_str());
+		
 		for (auto frame_kv : keyframesByID)
 		{
 			auto& frame = frame_kv.second;
 			int frameAgentId = frame.getAgentId();
 			const Sophus::Sim3f& alignTransform = frameAgentId != agentId ? vwr->getParent()->getViewer(frameAgentId)->getAlignTransform() : Sophus::Sim3f();
 			
-			if (idx > cutFirstNKf)
-				numpts += frame.flushPC(alignTransform, &f);
-			++idx;
+			if (idx < cutFirstNKf)
+			{
+				++idx;
+				continue;
+			}
+			
+			ofs << frame.id << std::endl;
+			ofs << frame.getAgentId()<< std::endl;
+			ofs << frame.camToWorld.rotationMatrix().data()[0] << " " << frame.camToWorld.rotationMatrix().data()[1] << " " << frame.camToWorld.rotationMatrix().data()[2] << " " << frame.camToWorld.translation()[0] << std::endl;
+			ofs << frame.camToWorld.rotationMatrix().data()[3] << " " << frame.camToWorld.rotationMatrix().data()[4] << " " << frame.camToWorld.rotationMatrix().data()[5] << " " << frame.camToWorld.translation()[1] << std::endl;
+			ofs << frame.camToWorld.rotationMatrix().data()[6] << " " << frame.camToWorld.rotationMatrix().data()[7] << " " << frame.camToWorld.rotationMatrix().data()[8] << " " << frame.camToWorld.translation()[2] << std::endl;
+			ofs << 0 << " " << 0 << " " << 0 << " " << frame.camToWorld.scale() << std::endl;
+			ofs.flush();
 		}
-		f.flush();
-		f.close();
-
-		std::ofstream f2((ros::package::getPath("lsd_slam_viewer")+"/pc.ply").c_str());
-		f2 << std::string("ply\n");
-		f2 << std::string("format binary_little_endian 1.0\n");
-		f2 << std::string("element vertex ") << numpts << std::string("\n");
-		f2 << std::string("property float x\n");
-		f2 << std::string("property float y\n");
-		f2 << std::string("property float z\n");
-		f2 << std::string("property float intensity\n");
-		f2 << std::string("end_header\n");
-
-		std::ifstream f3((ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
-		while(!f3.eof()) f2.put(f3.get());
-
-		f2.close();
-		f3.close();
-
-		system(("rm "+ros::package::getPath("lsd_slam_viewer")+"/pc_tmp.ply").c_str());
-		flushPointcloud = false;
-		printf("Done Flushing Pointcloud with %d points!\n", numpts);
+		
+		ofs.close();
 	}
 
 	if(printNumbers)
